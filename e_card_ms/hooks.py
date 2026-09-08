@@ -86,7 +86,7 @@ app_license = "mit"
 # ------------
 
 # before_install = "e_card_ms.install.before_install"
-# after_install = "e_card_ms.install.after_install"
+after_install = "e_card_ms.install.after_install"
 
 # Uninstallation
 # ------------
@@ -124,15 +124,24 @@ app_license = "mit"
 
 # Permissions
 # -----------
-# Permissions evaluated in scripted ways
+# Occasion is staff-only: only the roles listed in its DocType permissions
+# (System Manager, Event Manager) can see or touch it. An Occasion is
+# assigned to one specific user (assigned_user, settable only by a System
+# Manager via permlevel 1) and, unless the requester is a System Manager,
+# is only visible to that assigned user.
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+permission_query_conditions = {
+    "Occasion": "e_card_ms.e_card.doctype.occasion.occasion.get_permission_query_conditions",
+}
+
+has_permission = {
+    "Occasion": "e_card_ms.e_card.doctype.occasion.occasion.has_permission",
+}
+
+website_route_rules = [
+    {"from_route": "/invitee/download/occasion-card/<guest_code>", "to_route": "invitee/download/occasion-card"},
+    {"from_route": "/gate-checkin", "to_route": "gate-checkin"},
+]
 
 # Document Events
 # ---------------
