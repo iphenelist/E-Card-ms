@@ -1,7 +1,9 @@
 frappe.ui.form.on("Occasion", {
     refresh(frm) {
         if (!frm.is_new()) {
-            render_occasion_statistics(frm);
+            frm.call("get_invited_count").then(r => {
+                render_occasion_statistics(frm, r.message || 0);
+            });
         }
     },
 
@@ -84,7 +86,7 @@ frappe.ui.form.on("Occasion", {
     }
 });
 
-function render_occasion_statistics(frm) {
+function render_occasion_statistics(frm, invitedCount) {
     const $wrapper = frm.get_field("statistics_html").$wrapper;
     const guests = frm.doc.guests || [];
 
@@ -92,7 +94,7 @@ function render_occasion_statistics(frm) {
     const confirmed = guests.filter(g => g.rsvp_status === "Confirmed").length;
     const pending    = guests.filter(g => g.rsvp_status === "Pending").length;
     const declined   = guests.filter(g => g.rsvp_status === "Declined").length;
-    const sent       = guests.filter(g => g.whatsapp_sent).length;
+    const sent       = invitedCount || 0;
     const checkedIn  = guests.filter(g => g.checked_in).length;
     const notCheckedIn = total - checkedIn;
 
@@ -104,7 +106,7 @@ function render_occasion_statistics(frm) {
         { label: __("Confirmed"),      value: confirmed, v: "--stat-good" },
         { label: __("Pending"),        value: pending,   v: "--stat-orange" },
         { label: __("Declined"),       value: declined,  v: "--stat-critical" },
-        { label: __("WhatsApp Sent"),  value: sent,       v: "--stat-aqua" },
+        { label: __("Invited"),        value: sent,       v: "--stat-aqua" },
         { label: __("Checked In"),     value: checkedIn, v: "--stat-yellow" }
     ];
 

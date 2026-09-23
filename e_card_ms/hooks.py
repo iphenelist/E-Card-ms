@@ -132,10 +132,14 @@ after_install = "e_card_ms.install.after_install"
 
 permission_query_conditions = {
     "Occasion": "e_card_ms.e_card.doctype.occasion.occasion.get_permission_query_conditions",
+    "Occasion Subscription": "e_card_ms.e_card.doctype.occasion_subscription.occasion_subscription.get_permission_query_conditions",
+    "Occasion Guest Invite Log": "e_card_ms.e_card.doctype.occasion_guest_invite_log.occasion_guest_invite_log.get_permission_query_conditions",
 }
 
 has_permission = {
     "Occasion": "e_card_ms.e_card.doctype.occasion.occasion.has_permission",
+    "Occasion Subscription": "e_card_ms.e_card.doctype.occasion_subscription.occasion_subscription.has_permission",
+    "Occasion Guest Invite Log": "e_card_ms.e_card.doctype.occasion_guest_invite_log.occasion_guest_invite_log.has_permission",
 }
 
 website_route_rules = [
@@ -158,23 +162,11 @@ website_route_rules = [
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"e_card_ms.tasks.all"
-# 	],
-# 	"daily": [
-# 		"e_card_ms.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"e_card_ms.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"e_card_ms.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"e_card_ms.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"cron": {
+		"0 * * * *": ["e_card_ms.tasks.process_subscriptions"],
+	}
+}
 
 # Testing
 # -------

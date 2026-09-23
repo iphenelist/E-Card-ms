@@ -1,0 +1,89 @@
+{
+ "actions": [],
+ "creation": "2026-09-13 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "message_tab",
+  "whatsapp_section",
+  "wasender_api_token",
+  "sms_section",
+  "notify_africa_api_token",
+  "notify_africa_sms_sender_id",
+  "prices_tab",
+  "section_break_oprt",
+  "price_per_guest_card"
+ ],
+ "fields": [
+  {
+   "fieldname": "whatsapp_section",
+   "fieldtype": "Section Break",
+   "label": "WhatsApp (WaSenderAPI)"
+  },
+  {
+   "description": "Bearer token for the WaSenderAPI account used to send WhatsApp invitations.",
+   "fieldname": "wasender_api_token",
+   "fieldtype": "Password",
+   "label": "WaSender API Token"
+  },
+  {
+   "fieldname": "sms_section",
+   "fieldtype": "Section Break",
+   "label": "SMS (Notify Africa)"
+  },
+  {
+   "description": "Bearer token for the Notify Africa SMS API account used to send SMS invitations.",
+   "fieldname": "notify_africa_api_token",
+   "fieldtype": "Password",
+   "label": "Notify Africa API Token"
+  },
+  {
+   "fieldname": "notify_africa_sms_sender_id",
+   "fieldtype": "Data",
+   "label": "Notify Africa SMS Sender ID"
+  },
+  {
+   "fieldname": "section_break_oprt",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "price_per_guest_card",
+   "fieldtype": "Currency",
+   "label": "Price per guest card"
+  },
+  {
+   "fieldname": "message_tab",
+   "fieldtype": "Tab Break",
+   "label": "Message"
+  },
+  {
+   "fieldname": "prices_tab",
+   "fieldtype": "Tab Break",
+   "label": "Prices"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-09-13 23:51:45.568051",
+ "modified_by": "Administrator",
+ "module": "E Card",
+ "name": "E Card Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

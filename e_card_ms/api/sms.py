@@ -5,12 +5,13 @@ SMS_API_URL = "https://api.notify.africa/api/v1/api/messages/send"
 
 
 def get_credentials():
-    api_token = frappe.conf.get("notify_africa_api_token")
-    sender_id = frappe.conf.get("notify_africa_sms_sender_id")
+    settings = frappe.get_single("E Card Settings")
+    api_token = settings.get_password("notify_africa_api_token", raise_exception=False)
+    sender_id = settings.notify_africa_sms_sender_id
     if not api_token:
-        frappe.throw("notify_africa_api_token is not set in site_config.json")
+        frappe.throw("Notify Africa API Token is not set in E Card Settings")
     if not sender_id:
-        frappe.throw("notify_africa_sms_sender_id is not set in site_config.json")
+        frappe.throw("Notify Africa SMS Sender ID is not set in E Card Settings")
     return api_token, sender_id
 
 
@@ -59,13 +60,32 @@ def build_invitation_message(occasion_doc, guest_row) -> str:
     )
 
 
+def log_invite(occasion_doc, guest_row, success: bool, response) -> None:
+    """Record an SMS send attempt in the Occasion's Invite Log"""
+    frappe.get_doc({
+        "doctype": "Occasion Guest Invite Log",
+        "occasion": occasion_doc.name,
+        "guest_code": guest_row.guest_code,
+        "channel": "SMS",
+        "sent_at": frappe.utils.now(),
+        "success": 1 if success else 0,
+        "response": str(response)[:140],
+    }).insert(ignore_permissions=True)
+
+
 def send_invitation(occasion_doc, guest_row) -> dict:
     """Send the invitation text to a guest via SMS"""
     if not guest_row.phone:
         frappe.throw(f"No phone number for {guest_row.guest_name}")
 
     message = build_invitation_message(occasion_doc, guest_row)
-    result = send_sms(guest_row.phone, message)
+    try:
+        result = send_sms(guest_row.phone, message)
+    except Exception as e:
+        log_invite(occasion_doc, guest_row, success=False, response=e)
+        raise
+
+    log_invite(occasion_doc, guest_row, success=True, response=result)
 
     frappe.get_doc({
         "doctype": "Comment",
@@ -85,9 +105,5 @@ def send_single(occasion_name: str, guest_code: str):
     for guest in occasion.guests:
         if guest.guest_code == guest_code:
             result = send_invitation(occasion, guest)
-            frappe.db.set_value("Occasion Guest", guest.name, {
-                "sms_sent": 1,
-                "sms_sent_at": frappe.utils.now()
-            })
             return {"success": True, "result": result}
     frappe.throw(f"Guest with code '{guest_code}' not found in occasion '{occasion_name}'")

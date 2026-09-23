@@ -8,13 +8,9 @@
   "guest_name",
   "phone",
   "card_type",
-  "whatsapp_sent",
-  "sms_sent",
   "col_break_1",
   "guest_code",
   "rsvp_status",
-  "sent_at",
-  "sms_sent_at",
   "card_section",
   "card_image",
   "column_break_mn0s",
@@ -84,33 +80,6 @@
    "fieldname": "download_url",
    "fieldtype": "Data",
    "label": "Card Download URL",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "whatsapp_sent",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "WhatsApp Sent"
-  },
-  {
-   "fieldname": "sent_at",
-   "fieldtype": "Datetime",
-   "label": "Sent At",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "sms_sent",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "SMS Sent",
-   "read_only": 1
-  },
-  {
-   "fieldname": "sms_sent_at",
-   "fieldtype": "Datetime",
-   "label": "SMS Sent At",
    "read_only": 1
   },
   {

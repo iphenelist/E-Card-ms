@@ -105,6 +105,30 @@
     font-size:14px; font-weight: 700; cursor:pointer; transition: background .15s;
   }
   .manual-wrap button:hover { background: #232c46; }
+  .manual-wrap button:disabled { opacity: .55; cursor: not-allowed; }
+
+  .scan-status {
+    display: none; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px; margin-bottom: 12px; border-radius: 12px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    color: var(--muted); font-size: 13px; font-weight: 600;
+  }
+  .spinner {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid rgba(240,194,75,.25); border-top-color: var(--gold-light);
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .result-countdown { font-size: 12px; color: var(--muted); margin-top: 10px; font-weight: 600; }
+
+  @keyframes shake {
+    10%, 90% { transform: translateX(-1px); }
+    20%, 80% { transform: translateX(2px); }
+    30%, 50%, 70% { transform: translateX(-4px); }
+    40%, 60% { transform: translateX(4px); }
+  }
+  .result-box.shake { animation: shake .4s ease; }
 </style>
 {% endblock %}
 
@@ -131,6 +155,8 @@
     </div>
   </div>
 
+  <div class="scan-status" id="scanStatus"><span class="spinner"></span>Inachakata...</div>
+
   <div class="result-box" id="resultBox">
     <div class="result-icon" id="resultIcon"></div>
     <div class="result-message" id="resultMessage"></div>
@@ -138,6 +164,7 @@
     <div class="result-detail"  id="resultOccasion"></div>
     <div id="resultBadge"></div>
     <button class="btn-scan-again" onclick="resetScanner()">Scan Mgeni Mwingine</button>
+    <div class="result-countdown" id="resultCountdown"></div>
   </div>
 
   <!-- Live camera scanner. Requires a secure context (https or localhost) -->
@@ -158,8 +185,9 @@
 
   <div class="manual-wrap">
     <label>Au ingiza code kwa mkono:</label>
-    <input type="text" id="manualCode" placeholder="000000" maxlength="10" />
-    <button onclick="validateManual()">Thibitisha Code</button>
+    <input type="text" inputmode="numeric" id="manualCode" placeholder="000000" maxlength="10"
+           onkeydown="if (event.key === 'Enter') validateManual();" />
+    <button id="manualSubmitBtn" onclick="validateManual()">Thibitisha Code</button>
   </div>
 </div>
 
@@ -167,8 +195,10 @@
 let stats = { valid: 0, invalid: 0, duplicate: 0 };
 let scanner = null;
 let scanning = true;
+let requestInFlight = false;
+let countdownTimer = null;
 const secureContext = window.isSecureContext;
-const PAGE_OCCASION = "{{ scan_occasion }}";
+const PAGE_OCCASION = {{ scan_occasion | tojson }};
 
 function initScanner() {
   document.getElementById("liveScannerCard").style.display = secureContext ? "block" : "none";
@@ -178,7 +208,8 @@ function initScanner() {
     scanner = new Html5QrcodeScanner("reader", {
       fps: 10,
       qrbox: { width: 240, height: 240 },
-      rememberLastUsedCamera: true
+      rememberLastUsedCamera: true,
+      showTorchButtonIfSupported: true
     });
     scanner.render(onScanSuccess, () => {});
   }
@@ -201,6 +232,7 @@ function parseAndValidate(text) {
 }
 
 function validateManual() {
+  if (requestInFlight) return;
   const code = document.getElementById("manualCode").value.trim();
   if (!code) { alert("Tafadhali ingiza code"); return; }
   if (!PAGE_OCCASION) {
@@ -211,7 +243,14 @@ function validateManual() {
   validateCode(code, PAGE_OCCASION);
 }
 
+function setLoading(isLoading) {
+  requestInFlight = isLoading;
+  document.getElementById("scanStatus").style.display = isLoading ? "flex" : "none";
+  document.getElementById("manualSubmitBtn").disabled = isLoading;
+}
+
 function validateCode(code, occasionName) {
+  setLoading(true);
   fetch("/api/method/e_card_ms.www.gate-checkin.index.validate_guest", {
     method: "POST",
     headers: {
@@ -222,7 +261,8 @@ function validateCode(code, occasionName) {
   })
   .then(r => r.json())
   .then(data => showResult(data.message))
-  .catch(() => showResult({ valid: false, status: "Invalid", message: "❌ Hitilafu ya mtandao", color: "red" }));
+  .catch(() => showResult({ valid: false, status: "Invalid", message: "❌ Hitilafu ya mtandao", color: "red" }))
+  .finally(() => setLoading(false));
 }
 
 function showResult(res) {
@@ -238,25 +278,48 @@ function showResult(res) {
   document.getElementById("resultOccasion").textContent = res.occasion_name ? `Tukio: ${res.occasion_name}` : "";
   document.getElementById("resultBadge").innerHTML = res.card_type
     ? `<span class="result-badge">${res.card_type}</span>` : "";
+  document.getElementById("resultCountdown").textContent = "";
 
   if (res.status === "Valid") {
     stats.valid++;
     document.getElementById("statValid").textContent = stats.valid;
     playBeep(880, 150);
-    setTimeout(resetScanner, 3500);
-  } else if (res.status === "Already Used") {
-    stats.duplicate++;
-    document.getElementById("statDuplicate").textContent = stats.duplicate;
-    playBeep(440, 400);
+    startResetCountdown(3);
   } else {
-    stats.invalid++;
-    document.getElementById("statInvalid").textContent = stats.invalid;
-    playBeep(220, 600);
+    box.classList.add("shake");
+    setTimeout(() => box.classList.remove("shake"), 400);
+    if (res.status === "Already Used") {
+      stats.duplicate++;
+      document.getElementById("statDuplicate").textContent = stats.duplicate;
+      playBeep(440, 400);
+    } else {
+      stats.invalid++;
+      document.getElementById("statInvalid").textContent = stats.invalid;
+      playBeep(220, 600);
+    }
   }
 }
 
+function startResetCountdown(seconds) {
+  let remaining = seconds;
+  const el = document.getElementById("resultCountdown");
+  el.textContent = `Inarudi kwa sekunde ${remaining}...`;
+  countdownTimer = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+      resetScanner();
+    } else {
+      el.textContent = `Inarudi kwa sekunde ${remaining}...`;
+    }
+  }, 1000);
+}
+
 function resetScanner() {
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
   document.getElementById("resultBox").style.display = "none";
+  document.getElementById("resultCountdown").textContent = "";
   document.getElementById("manualCode").value = "";
   scanning = true;
   if (scanner) { try { scanner.clear(); } catch(e) {} }
@@ -276,7 +339,7 @@ function playBeep(freq, duration) {
 
 {% if auto_scan and scan_code %}
 window.addEventListener("load", () => {
-  setTimeout(() => validateCode("{{ scan_code }}", "{{ scan_occasion }}"), 600);
+  setTimeout(() => validateCode({{ scan_code | tojson }}, {{ scan_occasion | tojson }}), 600);
 });
 {% endif %}
 

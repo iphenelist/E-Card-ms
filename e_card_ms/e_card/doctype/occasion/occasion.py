@@ -59,20 +59,27 @@ class Occasion(Document):
         self.save()
         return results
 
+    def _already_invited_guest_codes(self, channel: str) -> set:
+        rows = frappe.get_all(
+            "Occasion Guest Invite Log",
+            filters={"occasion": self.name, "channel": channel},
+            pluck="guest_code",
+        )
+        return set(rows)
+
     @frappe.whitelist()
     def send_all_whatsapp(self):
-        """Send WhatsApp messages to all guests not yet sent"""
+        """Send WhatsApp messages to all guests not yet sent (first send only —
+        repeat reminders are handled by the Occasion Subscription's automatic
+        sending schedule, not this manual action)."""
         from e_card_ms.api.whatsapp import send_invitation
+        already_sent = self._already_invited_guest_codes("WhatsApp")
         results = {"success": 0, "failed": 0, "errors": []}
         for guest in self.guests:
-            if guest.whatsapp_sent:
+            if guest.guest_code in already_sent:
                 continue
             try:
                 send_invitation(self, guest)
-                frappe.db.set_value("Occasion Guest", guest.name, {
-                    "whatsapp_sent": 1,
-                    "sent_at": frappe.utils.now()
-                })
                 results["success"] += 1
             except Exception as e:
                 results["failed"] += 1
@@ -81,20 +88,28 @@ class Occasion(Document):
 
     @frappe.whitelist()
     def send_all_sms(self):
-        """Send SMS invitations to all guests not yet sent"""
+        """Send SMS invitations to all guests not yet sent (first send only —
+        repeat reminders are handled by the Occasion Subscription's automatic
+        sending schedule, not this manual action)."""
         from e_card_ms.api.sms import send_invitation
+        already_sent = self._already_invited_guest_codes("SMS")
         results = {"success": 0, "failed": 0, "errors": []}
         for guest in self.guests:
-            if guest.sms_sent:
+            if guest.guest_code in already_sent:
                 continue
             try:
                 send_invitation(self, guest)
-                frappe.db.set_value("Occasion Guest", guest.name, {
-                    "sms_sent": 1,
-                    "sms_sent_at": frappe.utils.now()
-                })
                 results["success"] += 1
             except Exception as e:
                 results["failed"] += 1
                 results["errors"].append(f"{guest.guest_name}: {str(e)}")
         return results
+
+    @frappe.whitelist()
+    def get_invited_count(self) -> int:
+        """Count of distinct guests who have received at least one WhatsApp/SMS invite"""
+        rows = frappe.db.sql(
+            "SELECT COUNT(DISTINCT guest_code) FROM `tabOccasion Guest Invite Log` WHERE occasion = %s",
+            self.name,
+        )
+        return rows[0][0] if rows else 0

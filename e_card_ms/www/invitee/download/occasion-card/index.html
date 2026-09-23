@@ -5,7 +5,7 @@
 
   <div style="background:#FDF6EE; border-radius:16px; padding:24px; border:1px solid #E8D5BC; margin-bottom:20px;">
     <p style="font-size:12px; color:#8B6914; letter-spacing:.1em; text-transform:uppercase; margin:0 0 4px;">
-      Wedding Invitation
+      E-Invitation
     </p>
     <h1 style="font-size:26px; color:#5C2D1E; margin:0 0 4px;">{{ occasion.couple_names }}</h1>
     <p style="font-size:13px; color:#8B5E4A; margin:0 0 16px;">{{ occasion.occasion_name }}</p>
@@ -105,7 +105,7 @@
 </div>
 
 <script>
-const RSVP_GUEST_CODE = "{{ guest.guest_code }}";
+const RSVP_GUEST_CODE = {{ guest.guest_code | tojson }};
 
 function sendRsvp(status) {
   fetch("/api/method/e_card_ms.www.invitee.download.occasion-card.index.confirm_rsvp", {

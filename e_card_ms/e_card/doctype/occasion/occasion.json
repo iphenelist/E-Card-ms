@@ -50,7 +50,7 @@
  ],
  "fields": [
   {
-   "description": "e.g. Harusi Ya Abel & Jackline",
+   "description": "e.g. Abel & Jackline's Wedding, or Amani's Graduation Party",
    "fieldname": "occasion_name",
    "fieldtype": "Data",
    "in_list_view": 1,
@@ -59,11 +59,11 @@
    "unique": 1
   },
   {
-   "description": "e.g. Abel & Jackline",
+   "description": "e.g. Abel & Jackline, or John Doe (event host/organizer)",
    "fieldname": "couple_names",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Couple / Host Names",
+   "label": "Host / Organizer Names",
    "reqd": 1
   },
   {
@@ -309,6 +309,13 @@
    "report": 1,
    "role": "Event Manager",
    "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Occasion Client",
    "write": 1
   },
   {

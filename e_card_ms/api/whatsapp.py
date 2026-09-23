@@ -5,9 +5,10 @@ WASENDER_BASE_URL = "https://www.wasenderapi.com/api"
 
 
 def get_credentials():
-    api_token = frappe.conf.get("wasender_api_token")
+    settings = frappe.get_single("E Card Settings")
+    api_token = settings.get_password("wasender_api_token", raise_exception=False)
     if not api_token:
-        frappe.throw("wasender_api_token is not set in site_config.json")
+        frappe.throw("WaSender API Token is not set in E Card Settings")
     return api_token
 
 
@@ -98,6 +99,19 @@ def get_card_image_url(guest_row) -> str:
     return url if url.startswith("http") else f"{base}{url}"
 
 
+def log_invite(occasion_doc, guest_row, success: bool, response) -> None:
+    """Record a WhatsApp send attempt in the Occasion's Invite Log"""
+    frappe.get_doc({
+        "doctype": "Occasion Guest Invite Log",
+        "occasion": occasion_doc.name,
+        "guest_code": guest_row.guest_code,
+        "channel": "WhatsApp",
+        "sent_at": frappe.utils.now(),
+        "success": 1 if success else 0,
+        "response": str(response)[:140],
+    }).insert(ignore_permissions=True)
+
+
 def send_invitation(occasion_doc, guest_row) -> dict:
     """Send the invitation text (with card download link) to a guest via WhatsApp
 
@@ -112,7 +126,13 @@ def send_invitation(occasion_doc, guest_row) -> dict:
         frappe.throw(f"Card not generated for {guest_row.guest_name}. Run Generate All Cards first.")
 
     message = build_invitation_message(occasion_doc, guest_row)
-    result = send_text(guest_row.phone, message)
+    try:
+        result = send_text(guest_row.phone, message)
+    except Exception as e:
+        log_invite(occasion_doc, guest_row, success=False, response=e)
+        raise
+
+    log_invite(occasion_doc, guest_row, success=True, response=result)
 
     frappe.get_doc({
         "doctype": "Comment",
@@ -132,9 +152,5 @@ def send_single(occasion_name: str, guest_code: str):
     for guest in occasion.guests:
         if guest.guest_code == guest_code:
             result = send_invitation(occasion, guest)
-            frappe.db.set_value("Occasion Guest", guest.name, {
-                "whatsapp_sent": 1,
-                "sent_at": frappe.utils.now()
-            })
             return {"success": True, "result": result}
     frappe.throw(f"Guest with code '{guest_code}' not found in occasion '{occasion_name}'")
