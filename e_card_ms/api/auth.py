@@ -67,7 +67,14 @@ def sign_up(full_name: str, email: str, phone: str | None = None, accept_terms=N
 		message = _("Akaunti imeundwa! Angalia barua pepe yako ({0}) kuthibitisha na kuweka nenosiri. / "
 					"Account created! Check your email ({0}) to verify and set your password.").format(email)
 	else:
-		message = _("Account created. The verification email could not be sent yet — the administrator will help you.")
+		# Frappe skips the welcome email when no default outgoing Email Account
+		# is set up (OutgoingEmailError). Mark it pending: the hourly
+		# send_pending_welcome_emails job sends it as soon as email works.
+		frappe.db.set_value("Message Credit Account", user.name, "welcome_email_pending", 1)
+		message = _(
+			"Akaunti imeundwa! Barua pepe ya kuweka nenosiri itatumwa kwa {0} muda si mrefu. / "
+			"Account created! The email to set your password will be sent to {0} shortly."
+		).format(email)
 	return {"status": "ok", "message": message}
 
 
@@ -91,3 +98,25 @@ def accept_terms() -> dict:
 
 def boot_session(bootinfo):
 	bootinfo.ecard_terms_pending = terms_pending()
+
+
+def send_pending_welcome_emails():
+	"""Every 5 minutes: send the set-password email to people who signed up while no
+	outgoing Email Account was configured. No admin action needed."""
+	from frappe.email.doctype.email_account.email_account import EmailAccount
+
+	pending = frappe.get_all("Message Credit Account", filters={"welcome_email_pending": 1}, pluck="user")
+	if not pending or not EmailAccount.find_default_outgoing():
+		return
+	for user_name in pending:
+		try:
+			user = frappe.get_doc("User", user_name)
+			if user.enabled and not user.last_login:
+				user.send_welcome_mail_to_user()
+			frappe.db.set_value("Message Credit Account", user_name, "welcome_email_pending", 0)
+			frappe.db.commit()  # nosemgrep — one user at a time, so a failure doesn't resend the others
+		except frappe.DoesNotExistError:
+			frappe.db.set_value("Message Credit Account", user_name, "welcome_email_pending", 0)
+		except Exception:
+			frappe.db.rollback()
+			frappe.log_error(title=f"E Card: welcome email for {user_name} failed", message=frappe.get_traceback())

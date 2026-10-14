@@ -178,7 +178,10 @@ scheduler_events = {
 			"e_card_ms.tasks.process_subscriptions",
 			"e_card_ms.tasks.process_contribution_reminders",
 		],
-		"*/5 * * * *": ["e_card_ms.api.payments.sync_pending_purchases"],
+		"*/5 * * * *": [
+			"e_card_ms.api.payments.sync_pending_purchases",
+			"e_card_ms.api.auth.send_pending_welcome_emails",
+		],
 	}
 }
 
