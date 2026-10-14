@@ -30,8 +30,6 @@ def get_context(context):
 	context.top_up_percent = cint(settings.top_up_locked_percent)
 	context.sms_price = catalogue["prices"]["SMS"]
 	context.whatsapp_price = catalogue["prices"]["WhatsApp"]
-	context.signup_bonus_sms = cint(settings.signup_bonus_sms)
-	context.signup_bonus_whatsapp = cint(settings.signup_bonus_whatsapp)
 	context.credit_expiry_months = cint(settings.credit_expiry_months)
 
 	# One row per package size, SMS and WhatsApp side by side.

@@ -65,8 +65,6 @@ def setup_settings_defaults():
         "sms_credit_price": 25,
         "whatsapp_credit_price": 75,
         "min_custom_credits": 10,
-        "signup_bonus_sms": 5,
-        "signup_bonus_whatsapp": 5,
         "base_url": "https://abliner.net/api/v1",
         "gateway_provider": "Abliner",
         "request_timeout": 30,

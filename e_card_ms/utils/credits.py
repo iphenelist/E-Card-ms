@@ -189,14 +189,6 @@ def credit_purchase(purchase_name: str) -> bool:
 	return True
 
 
-def grant_signup_bonus(user: str):
-	settings = frappe.get_cached_doc("E Card Settings")
-	for channel, field in (("SMS", "signup_bonus_sms"), ("WhatsApp", "signup_bonus_whatsapp")):
-		amount = cint(settings.get(field))
-		if amount > 0:
-			add(user, channel, amount, transaction_type="Sign-up Bonus")
-
-
 @frappe.whitelist()
 def admin_adjust(user: str, channel: str, credits: int, remarks: str | None = None):
 	"""System Manager: add (or with a negative number, remove) credits by hand."""
