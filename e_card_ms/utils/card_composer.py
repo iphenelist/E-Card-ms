@@ -190,8 +190,17 @@ def compose_card(occasion_doc, guest_row):
 def compose_single_guest(occasion_name: str, guest_row_name: str):
     """Whitelisted: compose card for a single guest by its (unique) child row name"""
     occasion = frappe.get_doc("Occasion", occasion_name)
-    for guest in occasion.guests:
+    occasion.check_permission("write")
+    occasion.assert_can_send()
+    capacity = occasion.paid_guest_capacity()
+    for position, guest in enumerate(occasion.guests, start=1):
         if guest.name == guest_row_name:
+            from e_card_ms.permissions import is_staff
+
+            if not is_staff() and position > capacity:
+                frappe.throw(f"This guest is beyond your subscription of {capacity} cards — request more cards first.")
+            if not guest.guest_code:
+                guest.guest_code = occasion._generate_unique_code()
             compose_card(occasion, guest)
             occasion.save()
             return {"success": True, "card_image": guest.card_image}
@@ -206,6 +215,7 @@ def generate_preview(occasion_name: str):
     guests exist.
     """
     occasion = frappe.get_doc("Occasion", occasion_name)
+    occasion.check_permission("write")
     if not occasion.card_design:
         frappe.throw("Please upload a Card Design image first.")
 
