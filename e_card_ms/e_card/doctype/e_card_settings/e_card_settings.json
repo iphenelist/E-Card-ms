@@ -18,8 +18,6 @@
   "whatsapp_credit_price",
   "col_break_credit_price",
   "min_custom_credits",
-  "signup_bonus_sms",
-  "signup_bonus_whatsapp",
   "packages_section",
   "credit_packages",
   "sms_tab",
@@ -142,18 +140,6 @@
    "fieldname": "min_custom_credits",
    "fieldtype": "Int",
    "label": "Minimum custom quantity"
-  },
-  {
-   "default": "5",
-   "fieldname": "signup_bonus_sms",
-   "fieldtype": "Int",
-   "label": "Free SMS credits on sign-up"
-  },
-  {
-   "default": "5",
-   "fieldname": "signup_bonus_whatsapp",
-   "fieldtype": "Int",
-   "label": "Free WhatsApp credits on sign-up"
   },
   {
    "fieldname": "packages_section",
@@ -507,7 +493,7 @@
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-10-14 16:00:00.000000",
+ "modified": "2026-10-14 22:43:09.958943",
  "modified_by": "Administrator",
  "module": "E Card",
  "name": "E Card Settings",

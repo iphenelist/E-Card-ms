@@ -6,7 +6,7 @@ from frappe.rate_limiter import rate_limit
 from frappe.utils import cint, escape_html, validate_email_address
 
 from e_card_ms.legal import get_legal_documents, record_acceptance, terms_pending
-from e_card_ms.utils.credits import get_account, grant_signup_bonus
+from e_card_ms.utils.credits import get_account
 
 SIGNUP_ROLES = ("Occasion Manager", "Desk User")
 
@@ -60,7 +60,6 @@ def sign_up(full_name: str, email: str, phone: str | None = None, accept_terms=N
 	# After verifying the email and setting a password, land on their Occasion list in the Desk.
 	frappe.cache.hset("redirect_after_login", user.name, "/app/occasion")
 	get_account(user.name)
-	grant_signup_bonus(user.name)
 	record_acceptance(user.name, "Sign-up")
 
 	if user.flags.email_sent:
