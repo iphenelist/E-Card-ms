@@ -325,6 +325,34 @@ class IntegrationTestOccasion(IntegrationTestCase):
 			res = validate_guest("555111", occasion.name, pin=occasion.gate_pin)
 		self.assertEqual(res["status"], "Already Used")
 
+	def test_double_and_table_cards_admit_several_people(self):
+		validate_guest = frappe.get_attr("e_card_ms.www.gate-checkin.index.validate_guest")
+
+		occasion = make_occasion(table_size=8)
+		occasion.append("guests", {"guest_name": "Wawili", "phone": "0712000031", "card_type": "DOUBLE", "guest_code": "555201"})
+		occasion.append("guests", {"guest_name": "Meza A", "phone": "0712000032", "card_type": "TABLE", "guest_code": "555202"})
+		occasion.append("guests", {"guest_name": "Meza B", "phone": "0712000033", "card_type": "TABLE", "admits": 3, "guest_code": "555203"})
+		occasion.append("guests", {"guest_name": "Mmoja", "phone": "0712000034", "card_type": "VIP", "admits": 5, "guest_code": "555204"})
+		occasion.save()
+		self.assertEqual([g.admits for g in occasion.guests], [2, 8, 3, 1])
+
+		def scan(code):
+			with patch("frappe.db.commit"):
+				return validate_guest(code, occasion.name, pin=occasion.gate_pin)
+
+		self.assertEqual((scan("555201")["status"], scan("555201")["entered"]), ("Valid", 2))
+		res = scan("555201")
+		self.assertEqual((res["status"], res["entered"], res["admits"]), ("Already Used", 2, 2))
+
+		for expected in (1, 2, 3):
+			self.assertEqual(scan("555203")["entered"], expected)
+		self.assertEqual(scan("555203")["status"], "Already Used")
+		self.assertEqual(scan("555202")["admits"], 8)
+
+		self.assertEqual(scan("555204")["status"], "Valid")
+		self.assertEqual(scan("555204")["status"], "Already Used")
+		self.assertEqual(frappe.db.get_value("Occasion Guest", {"guest_code": "555201"}, "entered_count"), 2)
+
 	def test_new_terms_version_blocks_sending_until_accepted(self):
 		from e_card_ms.legal import record_acceptance, terms_pending
 

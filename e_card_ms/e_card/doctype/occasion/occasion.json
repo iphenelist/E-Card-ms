@@ -49,6 +49,7 @@
   "send_sms_btn",
   "checkin_section",
   "allow_reentry",
+  "table_size",
   "gate_pin",
   "open_gate_checkin_btn",
   "budget_tab",
@@ -286,6 +287,14 @@
    "fieldname": "allow_reentry",
    "fieldtype": "Check",
    "label": "Allow Re-entry (QR scan twice)"
+  },
+  {
+   "default": "10",
+   "fieldname": "table_size",
+   "fieldtype": "Int",
+   "label": "Table Card Size (people)",
+   "non_negative": 1,
+   "description": "How many people one TABLE card lets in. You can change it on each guest."
   },
   {
    "fieldname": "open_gate_checkin_btn",

@@ -561,6 +561,8 @@ function render_occasion_statistics(frm, invitedCount) {
     const declined   = guests.filter(g => g.rsvp_status === "Declined").length;
     const sent       = invitedCount || 0;
     const checkedIn  = guests.filter(g => g.checked_in).length;
+    const peopleIn   = guests.reduce((n, g) => n + (g.entered_count || (g.checked_in ? 1 : 0)), 0);
+    const peopleAll  = guests.reduce((n, g) => n + (g.admits || 1), 0);
 
     // Validated categorical/status palette — see dataviz skill references/palette.md.
     // Stat tiles use text-safe steps; the two pies use the fixed status triad
@@ -571,7 +573,8 @@ function render_occasion_statistics(frm, invitedCount) {
         { label: __("Pending"),        value: pending,   v: "--stat-orange" },
         { label: __("Declined"),       value: declined,  v: "--stat-critical" },
         { label: __("Invited"),        value: sent,       v: "--stat-aqua" },
-        { label: __("Checked In"),     value: checkedIn, v: "--stat-yellow" }
+        { label: __("Checked In"),     value: checkedIn, v: "--stat-yellow" },
+        { label: __("People In"),      value: `${peopleIn}/${peopleAll}`, v: "--stat-yellow" }
     ];
 
     const cardsHtml = stats
