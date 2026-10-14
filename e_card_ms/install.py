@@ -39,11 +39,10 @@ def after_install():
 
 
 def setup_roles():
-    # "Event Manager": internal staff role — sees every Occasion, Subscription,
-    # Invite Log and the revenue report.
     # "Occasion Manager": a self-registered (or approved) customer — sees and
-    # manages only Occasions assigned to them, plus their own credits.
-    for role_name in ("Event Manager", "Occasion Manager"):
+    # manages only the Occasions they created (or were assigned), with their
+    # child tables. Every other E Card doctype is System Manager only.
+    for role_name in ("Occasion Manager",):
         if not frappe.db.exists("Role", role_name):
             r = frappe.new_doc("Role")
             r.role_name = role_name
@@ -51,8 +50,8 @@ def setup_roles():
             r.insert(ignore_permissions=True)
         else:
             frappe.db.set_value("Role", role_name, "desk_access", 1)
-    # Occasion Managers land on their website dashboard after login.
-    frappe.db.set_value("Role", "Occasion Manager", "home_page", "/dashboard")
+    # Occasion Managers land on their Occasion list in the Desk after login.
+    frappe.db.set_value("Role", "Occasion Manager", "home_page", "/app/occasion")
 
 
 def setup_settings_defaults():

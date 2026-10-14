@@ -113,15 +113,14 @@ class IntegrationTestCreditTransaction(IntegrationTestCase):
 		self.assertEqual(credits.get_balance(BUYER, "WhatsApp"), start + 10)
 		self.assertTrue(frappe.db.get_value("Credit Purchase", purchase.name, "credited"))
 
-	def test_manager_sees_only_own_ledger(self):
+	def test_manager_has_no_ledger_access(self):
 		credits.add(BUYER, "SMS", 1)
-		credits.add("Administrator", "SMS", 1)
 		frappe.set_user(BUYER)
 		try:
-			users = set(frappe.get_list("Credit Transaction", pluck="user"))
+			self.assertFalse(frappe.has_permission("Credit Transaction", "read"))
+			self.assertEqual(credits.get_balance(BUYER, "SMS") >= 1, True, "balance still readable via the app API")
 		finally:
 			frappe.set_user("Administrator")
-		self.assertEqual(users, {BUYER})
 
 	def test_receipt_pdf_and_whatsapp(self):
 		from e_card_ms import receipts
@@ -153,3 +152,37 @@ class IntegrationTestCreditTransaction(IntegrationTestCase):
 		self.assertFalse(is_public_url("http://192.168.1.178:8002/files/r.pdf"))
 		self.assertFalse(is_public_url("http://project:8002/files/r.pdf"))
 		self.assertTrue(is_public_url("https://ecard.co.tz/files/r.pdf"))
+
+	def test_pending_welcome_email_is_sent_once_email_works(self):
+		from frappe.core.doctype.user.user import User
+
+		from e_card_ms.api.auth import send_pending_welcome_emails, sign_up
+
+		email = "pending.welcome@example.com"
+		frappe.set_user("Guest")
+		try:
+			# No outgoing account: Frappe raises OutgoingEmailError inside, the account is still created.
+			with patch.object(User, "send_welcome_mail_to_user", side_effect=frappe.OutgoingEmailError):
+				res = sign_up(full_name="Pending Welcome", email=email, phone="0712000888", accept_terms=1)
+		finally:
+			frappe.set_user("Administrator")
+		self.assertEqual(res["status"], "ok")
+		self.assertTrue(frappe.db.get_value("Message Credit Account", email, "welcome_email_pending"))
+
+		with (
+			patch("frappe.email.doctype.email_account.email_account.EmailAccount.find_default_outgoing", return_value=None),
+			patch.object(User, "send_welcome_mail_to_user") as send,
+		):
+			send_pending_welcome_emails()
+		send.assert_not_called()
+		self.assertTrue(frappe.db.get_value("Message Credit Account", email, "welcome_email_pending"))
+
+		with (
+			patch("frappe.email.doctype.email_account.email_account.EmailAccount.find_default_outgoing", return_value=object()),
+			patch.object(User, "send_welcome_mail_to_user") as send,
+			patch("frappe.db.commit"),
+		):
+			send_pending_welcome_emails()
+			send_pending_welcome_emails()
+		self.assertEqual(send.call_count, 1, "sent exactly once")
+		self.assertFalse(frappe.db.get_value("Message Credit Account", email, "welcome_email_pending"))

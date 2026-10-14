@@ -49,8 +49,8 @@ frappe.ui.form.on("Occasion", {
         confirm_bulk_send(frm, "SMS", "send_all_sms");
     },
 
-    buy_credits_btn() {
-        window.open("/credits", "_blank");
+    buy_credits_btn(frm) {
+        open_buy_credits_dialog(frm);
     },
 
     request_subscription_btn(frm) {
@@ -247,16 +247,156 @@ function confirm_bulk_send(frm, channel, method) {
         let html = credit_line(channel, c, est.billing);
         if (est.billing && c.needed > c.available) {
             html += `<p style="margin-top:8px">${__("Not enough credits — only the first messages will go out.")}
-                <a href="/credits" target="_blank">${__("Buy credits")}</a></p>`;
+                <a href="#" class="ec-buy-credits">${__("Buy credits")}</a></p>`;
         }
-        frappe.confirm(`${__("Send {0} invitations to all unsent guests?", [channel])}<br><br>${html}`, () => {
+        const d = frappe.confirm(`${__("Send {0} invitations to all unsent guests?", [channel])}<br><br>${html}`, () => {
             frappe.show_alert({ message: __("Sending..."), indicator: "blue" });
             frm.call(method).then(res => {
                 show_bulk_result(res.message, __("Sent"), __("{0} Errors", [channel]));
                 refresh_billing_status(frm);
             });
         });
+        d.$wrapper.find(".ec-buy-credits").on("click", (e) => {
+            e.preventDefault();
+            d.hide();
+            open_buy_credits_dialog(frm, channel, c.needed - c.available);
+        });
     }));
+}
+
+function open_buy_credits_dialog(frm, channel, shortfall) {
+    frappe.call("e_card_ms.api.payments.get_credit_page_data").then(r => {
+        const data = r.message;
+        const CUSTOM = __("Custom amount");
+        const money = (n) => `${data.currency} ${format_number(n, null, 0)}`;
+        const package_options = (ch) => [
+            ...data.packages[ch].map(p => ({ value: p.label, label: `${p.label} — ${format_number(p.credits, null, 0)} ${__("credits")} · ${money(p.amount)}` })),
+            { value: CUSTOM, label: CUSTOM },
+        ];
+        let polling = null;
+
+        const d = new frappe.ui.Dialog({
+            title: __("Buy Credits / Nunua Credits"),
+            fields: [
+                { fieldname: "balance_html", fieldtype: "HTML" },
+                {
+                    fieldname: "channel", fieldtype: "Select", label: __("Credit type"), reqd: 1,
+                    options: ["SMS", "WhatsApp"], default: channel || "SMS",
+                    onchange() { set_packages(); }
+                },
+                { fieldname: "package", fieldtype: "Select", label: __("Package"), reqd: 1, onchange() { update_total(); } },
+                {
+                    fieldname: "credit_count", fieldtype: "Int", label: __("Number of credits"),
+                    depends_on: `eval:doc.package === ${JSON.stringify(CUSTOM)}`,
+                    description: __("Minimum {0}", [data.min_custom]),
+                    onchange() { update_total(); }
+                },
+                { fieldname: "total_html", fieldtype: "HTML" },
+                {
+                    fieldname: "phone", fieldtype: "Data", options: "Phone", label: __("Mobile money number"),
+                    default: data.phone, hidden: data.online_payment ? 0 : 1,
+                    description: __("You will get a prompt on this phone to enter your PIN.")
+                },
+                {
+                    fieldname: "accept_terms", fieldtype: "Check",
+                    label: __("I accept the credit purchase <a href='/terms' target='_blank'>Terms</a> / Nakubali masharti")
+                },
+                { fieldname: "status_html", fieldtype: "HTML" },
+            ],
+            primary_action_label: data.online_payment ? __("Pay") : __("Place order"),
+            primary_action(values) {
+                const sel = selection();
+                if (!sel.credits) return show_status("red", __("Choose a package or enter the number of credits."));
+                if (!values.accept_terms) return show_status("red", __("Tick the box to accept the terms."));
+                if (data.online_payment && (values.phone || "").replace(/\D/g, "").length < 9) {
+                    return show_status("red", __("Enter the mobile money number to pay with."));
+                }
+                d.get_primary_btn().prop("disabled", true);
+                frappe.call({
+                    method: "e_card_ms.api.payments.create_purchase",
+                    type: "POST",
+                    args: {
+                        channel: values.channel,
+                        credit_count: sel.credits,
+                        package: sel.package,
+                        phone: data.online_payment ? values.phone : null,
+                        accept_terms: 1,
+                    },
+                }).then(res => {
+                    const p = res.message;
+                    if (p.manual) {
+                        show_status("blue", `${__("Order {0} placed.", [p.purchase])}<br>${frappe.utils.escape_html(p.message).replace(/\n/g, "<br>")}`);
+                        d.get_primary_btn().hide();
+                        return;
+                    }
+                    show_status("blue", `${frappe.utils.escape_html(p.message)} <span class="text-muted">(${p.purchase})</span>`);
+                    poll(p.purchase, 0);
+                }, () => d.get_primary_btn().prop("disabled", false));  // server message already shown
+            },
+        });
+
+        const selection = () => {
+            const ch = d.get_value("channel") || channel || "SMS";
+            const pkg = data.packages[ch].find(p => p.label === d.get_value("package"));
+            if (pkg) return { credits: pkg.credits, amount: pkg.amount, package: pkg.label };
+            const n = cint(d.get_value("credit_count"));
+            return { credits: n >= data.min_custom ? n : 0, amount: n * data.prices[ch], package: null };
+        };
+        const update_total = () => {
+            const sel = selection();
+            d.fields_dict.total_html.$wrapper.html(sel.credits
+                ? `<div style="font-size:16px;font-weight:700;margin:4px 0 10px">${__("Total")}: ${money(sel.amount)}</div>`
+                : "");
+        };
+        const set_packages = () => {
+            const ch = d.get_value("channel") || channel || "SMS";
+            const opts = package_options(ch);
+            d.set_df_property("package", "options", opts);
+            // Pre-pick the smallest package that covers what's missing for this send.
+            const fit = shortfall > 0 && data.packages[ch].find(p => p.credits >= shortfall);
+            if (shortfall > 0 && !fit) d.set_value("credit_count", Math.max(shortfall, data.min_custom));
+            d.set_value("package", fit ? fit.label : (shortfall > 0 ? CUSTOM : opts[0].value));
+            update_total();
+        };
+        const render_balance = (b) => d.fields_dict.balance_html.$wrapper.html(
+            `<div style="margin-bottom:8px">${__("SMS credits")}: <b>${b.sms_balance}</b> · ${__("WhatsApp credits")}: <b>${b.whatsapp_balance}</b></div>`
+        );
+        const show_status = (color, html) => d.fields_dict.status_html.$wrapper.html(
+            `<div class="alert alert-${{ red: "danger", blue: "info", green: "success" }[color]}" style="margin:8px 0 0">${html}</div>`
+        );
+        const poll = (purchase, attempt) => {
+            if (attempt > 45) {
+                polling = null;
+                show_status("blue", __("Still waiting for the payment ({0}). Your credits are added automatically once it goes through — you can close this window.", [purchase]));
+                return;
+            }
+            polling = setTimeout(() => {
+                frappe.call({ method: "e_card_ms.api.payments.get_purchase_status", args: { purchase }, freeze: false })
+                    .then(s => {
+                        s = s.message;
+                        if (s.status === "Paid") {
+                            polling = null;
+                            render_balance(s.balances);
+                            show_status("green", __("Payment received — {0} {1} credits added.", [format_number(s.credits, null, 0), s.channel]));
+                            d.set_primary_action(__("Done"), () => d.hide());
+                            d.get_primary_btn().prop("disabled", false);
+                            refresh_billing_status(frm);
+                        } else if (s.status === "Failed" || s.status === "Cancelled") {
+                            polling = null;
+                            show_status("red", __("The payment did not go through. Check your balance and try again."));
+                            d.get_primary_btn().prop("disabled", false);
+                        } else {
+                            poll(purchase, attempt + 1);
+                        }
+                    }, () => poll(purchase, attempt + 1));  // network blip: keep polling
+            }, 4000);
+        };
+
+        d.onhide = () => { clearTimeout(polling); polling = null; refresh_billing_status(frm); };
+        d.show();
+        render_balance(data.balances);
+        set_packages();
+    });
 }
 
 function contributor_options(frm) {
@@ -421,6 +561,8 @@ function render_occasion_statistics(frm, invitedCount) {
     const declined   = guests.filter(g => g.rsvp_status === "Declined").length;
     const sent       = invitedCount || 0;
     const checkedIn  = guests.filter(g => g.checked_in).length;
+    const peopleIn   = guests.reduce((n, g) => n + (g.entered_count || (g.checked_in ? 1 : 0)), 0);
+    const peopleAll  = guests.reduce((n, g) => n + (g.admits || 1), 0);
 
     // Validated categorical/status palette — see dataviz skill references/palette.md.
     // Stat tiles use text-safe steps; the two pies use the fixed status triad
@@ -431,7 +573,8 @@ function render_occasion_statistics(frm, invitedCount) {
         { label: __("Pending"),        value: pending,   v: "--stat-orange" },
         { label: __("Declined"),       value: declined,  v: "--stat-critical" },
         { label: __("Invited"),        value: sent,       v: "--stat-aqua" },
-        { label: __("Checked In"),     value: checkedIn, v: "--stat-yellow" }
+        { label: __("Checked In"),     value: checkedIn, v: "--stat-yellow" },
+        { label: __("People In"),      value: `${peopleIn}/${peopleAll}`, v: "--stat-yellow" }
     ];
 
     const cardsHtml = stats

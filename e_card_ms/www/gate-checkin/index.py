@@ -2,6 +2,9 @@ import secrets
 
 import frappe
 from frappe.rate_limiter import rate_limit
+from frappe.utils import cint
+
+from e_card_ms.e_card.doctype.occasion.occasion import card_admits
 
 
 def get_context(context):
@@ -48,7 +51,7 @@ def validate_guest(guest_code: str, occasion_name: str | None = None, pin: str |
         "Occasion Guest",
         filters=filters,
         fields=[
-            "name", "guest_name", "card_type", "guest_code",
+            "name", "guest_name", "card_type", "guest_code", "admits",
             "checked_in", "check_in_time", "rsvp_status", "parent"
         ],
         limit=1
@@ -63,24 +66,38 @@ def validate_guest(guest_code: str, occasion_name: str | None = None, pin: str |
         }
 
     guest = results[0]
-    allow_reentry = frappe.db.get_value("Occasion", guest["parent"], "allow_reentry")
+    allow_reentry, table_size = frappe.db.get_value(
+        "Occasion", guest["parent"], ["allow_reentry", "table_size"]
+    )
+    admits = card_admits(guest["card_type"], guest["admits"], table_size)
+    # Lock the row: two gate phones scanning the same DOUBLE/TABLE card at once
+    # must not both get the last place.
+    entered = cint(frappe.db.get_value("Occasion Guest", guest["name"], "entered_count", for_update=True))
 
-    if guest["checked_in"] and not allow_reentry:
+    if entered >= admits and not allow_reentry:
+        first_in = frappe.utils.format_datetime(guest["check_in_time"]) if guest["check_in_time"] else ""
+        if admits > 1:
+            message = f"⚠️ Kadi imeshatumika: watu {entered} kati ya {admits} wameingia (wa kwanza saa {first_in})"
+        else:
+            message = f"⚠️ Ameshaingia tayari saa {first_in}"
         return {
             "valid": False,
             "status": "Already Used",
-            "message": f"⚠️ Ameshaingia tayari saa {frappe.utils.format_datetime(guest['check_in_time'])}",
+            "message": message,
             "guest_name": guest["guest_name"],
             "card_type": guest["card_type"],
+            "admits": admits,
+            "entered": entered,
             "color": "orange"
         }
 
-    # Mark checked in
-    frappe.db.set_value("Occasion Guest", guest["name"], {
-        "checked_in": 1,
-        "check_in_time": frappe.utils.now(),
-        "check_in_status": "Valid"
-    })
+    # Count this person in. With re-entry on the card never runs out, so the
+    # count stops at the card's size.
+    entered = min(entered + 1, admits)
+    values = {"checked_in": 1, "entered_count": entered, "check_in_status": "Valid"}
+    if not guest["checked_in"] or not guest["check_in_time"]:
+        values["check_in_time"] = frappe.utils.now()  # first arrival on this card
+    frappe.db.set_value("Occasion Guest", guest["name"], values)
     frappe.db.commit()
 
     occasion = frappe.db.get_value(
@@ -91,9 +108,11 @@ def validate_guest(guest_code: str, occasion_name: str | None = None, pin: str |
     return {
         "valid": True,
         "status": "Valid",
-        "message": f"✅ Karibu, {guest['guest_name']}!",
+        "message": f"✅ Karibu, {guest['guest_name']}!" + (f" ({entered}/{admits})" if admits > 1 else ""),
         "guest_name": guest["guest_name"],
         "card_type": guest["card_type"],
+        "admits": admits,
+        "entered": entered,
         "guest_code": guest["guest_code"],
         "occasion_name": occasion.occasion_name if occasion else "",
         "couple_names": occasion.couple_names if occasion else "",

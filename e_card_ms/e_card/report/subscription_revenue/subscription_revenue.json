@@ -6,7 +6,7 @@
  "doctype": "Report",
  "filters": [],
  "is_standard": "Yes",
- "modified": "2026-09-14 00:00:00.000000",
+ "modified": "2026-10-14 22:05:00.965194",
  "modified_by": "Administrator",
  "module": "E Card",
  "name": "Subscription Revenue",
@@ -18,9 +18,6 @@
  "roles": [
   {
    "role": "System Manager"
-  },
-  {
-   "role": "Event Manager"
   }
  ]
 }

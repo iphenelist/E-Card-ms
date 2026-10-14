@@ -176,6 +176,7 @@
     <div class="result-message" id="resultMessage"></div>
     <div class="result-detail"  id="resultName"></div>
     <div class="result-detail"  id="resultOccasion"></div>
+    <div class="result-detail"  id="resultPeople"></div>
     <div id="resultBadge"></div>
     <button class="btn-scan-again" onclick="resetScanner()">Scan Mgeni Mwingine</button>
     <div class="result-countdown" id="resultCountdown"></div>
@@ -336,6 +337,10 @@ function showResult(res) {
   document.getElementById("resultMessage").textContent = res.message || "";
   document.getElementById("resultName").textContent = res.guest_name ? `Mgeni: ${res.guest_name}` : "";
   document.getElementById("resultOccasion").textContent = res.occasion_name ? `Tukio: ${res.occasion_name}` : "";
+  const left = (res.admits || 0) - (res.entered || 0);
+  document.getElementById("resultPeople").textContent = res.admits > 1
+    ? `Watu: ${res.entered} kati ya ${res.admits} wameingia` + (left > 0 ? ` · bado ${left} / ${left} more can enter` : ` · kadi imejaa / card full`)
+    : "";
   document.getElementById("resultBadge").innerHTML = res.card_type
     ? `<span class="result-badge">${res.card_type}</span>` : "";
   document.getElementById("resultCountdown").textContent = "";

@@ -16,6 +16,8 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt, fmt_money, formatdate, get_url, now_datetime
 
+from e_card_ms.permissions import is_staff
+
 RECEIPT_DOCTYPES = ("Occasion Subscription", "Credit Purchase")
 
 
@@ -229,7 +231,7 @@ def queue_receipt(doctype: str, name: str):
 def resend_receipt(doctype: str, name: str) -> dict:
 	if doctype not in RECEIPT_DOCTYPES:
 		frappe.throw(_("Receipts are only available for card subscriptions and credit purchases."))
-	frappe.only_for(("System Manager", "Event Manager"))
+	frappe.only_for("System Manager")
 	_assert_paid(frappe.get_doc(doctype, name))
 	return send_receipt(doctype, name)
 
@@ -242,7 +244,10 @@ def download_receipt(doctype: str, name: str):
 	if doctype not in RECEIPT_DOCTYPES:
 		frappe.throw(_("Receipts are only available for card subscriptions and credit purchases."))
 	doc = frappe.get_doc(doctype, name)
-	doc.check_permission("read")
+	# Occasion Managers have no Desk access to these doctypes, so check
+	# ownership directly instead of doc.check_permission().
+	if doc.user != frappe.session.user and not is_staff():
+		raise frappe.PermissionError
 	_assert_paid(doc)
 	frappe.local.response.filename = f"receipt-{doc.name}.pdf"
 	frappe.local.response.filecontent = get_pdf(render_receipt_html(doc), {"page-size": "A5"})

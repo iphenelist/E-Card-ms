@@ -12,5 +12,6 @@ e_card_ms.patches.backfill_occasion_upgrade
 e_card_ms.patches.switch_on_new_settings_flags
 e_card_ms.patches.seed_card_price_tiers
 e_card_ms.patches.set_top_up_locked_percent
-e_card_ms.patches.occasion_manager_home_dashboard
 e_card_ms.patches.use_rodsms_for_sms
+e_card_ms.patches.occasion_manager_home_desk
+e_card_ms.patches.set_guest_card_admits

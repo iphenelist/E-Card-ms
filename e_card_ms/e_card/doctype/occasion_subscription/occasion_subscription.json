@@ -313,7 +313,7 @@
   }
  ],
  "links": [],
- "modified": "2026-10-14 13:00:00.000000",
+ "modified": "2026-10-14 22:05:00.965194",
  "modified_by": "Administrator",
  "module": "E Card",
  "name": "Occasion Subscription",
@@ -332,18 +332,6 @@
    "share": 1,
    "submit": 1,
    "write": 1
-  },
-  {
-   "email": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "Event Manager"
-  },
-  {
-   "role": "Occasion Manager",
-   "read": 1,
-   "print": 1
   },
   {
    "role": "System Manager",

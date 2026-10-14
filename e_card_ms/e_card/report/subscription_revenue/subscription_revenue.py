@@ -19,7 +19,7 @@ def execute(filters=None):
 		params["status"] = status
 
 	if not is_staff():
-		# Staff (System / Event Manager) see all revenue; anyone else only
+		# Staff (System Manager) see all revenue; anyone else only
 		# their own subscriptions, matching Occasion Subscription's permissions.
 		conditions.append("s.user = %(user)s")
 		params["user"] = frappe.session.user

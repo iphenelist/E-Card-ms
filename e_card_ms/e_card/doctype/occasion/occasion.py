@@ -13,19 +13,34 @@ from e_card_ms.utils.phone import normalize_phone
 
 CONTRIBUTOR_ID_PREFIX = "C-"
 CARD_TYPES = ("SINGLE", "DOUBLE", "VIP", "TABLE")
+FIXED_CARD_ADMITS = {"SINGLE": 1, "VIP": 1, "DOUBLE": 2}
+DEFAULT_TABLE_SIZE = 10
+
+
+def card_admits(card_type: str | None, admits=None, table_size=None) -> int:
+    """How many people one card lets in at the gate. TABLE cards keep their own
+    size when set (2 or more), otherwise use the Occasion's table size."""
+    fixed = FIXED_CARD_ADMITS.get(card_type or "SINGLE")
+    if fixed:
+        return fixed
+    if cint(admits) >= 2:
+        return cint(admits)
+    return max(cint(table_size) or DEFAULT_TABLE_SIZE, 1)
 
 
 def get_permission_query_conditions(user=None):
-    """Restrict Occasion list/report views to the assigned user, unless staff."""
+    """Occasion list/report views: everyone sees only the Occasions they created
+    (or that a System Manager assigned to them); staff see all."""
     if not user:
         user = frappe.session.user
     if is_staff(user):
         return ""
-    return f"`tabOccasion`.`assigned_user` = {frappe.db.escape(user)}"
+    user = frappe.db.escape(user)
+    return f"(`tabOccasion`.`owner` = {user} or `tabOccasion`.`assigned_user` = {user})"
 
 
 def has_permission(doc, ptype="read", user=None):
-    """Restrict direct Occasion access to the assigned user, unless staff.
+    """Direct Occasion access: only its creator or assigned user, unless staff.
     Creating is allowed by role (Occasion Manager) — validate() then assigns
     the new Occasion to its creator."""
     if not user:
@@ -34,7 +49,7 @@ def has_permission(doc, ptype="read", user=None):
         return True
     if ptype == "create" or doc.is_new():
         return True
-    return doc.assigned_user == user
+    return user in (doc.owner, doc.assigned_user)
 
 
 class Occasion(Document):
@@ -51,6 +66,8 @@ class Occasion(Document):
         self._compute_contributions()
         if self.auto_add_paid_contributors:
             self._add_paid_contributors_to_guests()
+        for guest in self.guests:
+            guest.admits = card_admits(guest.card_type, guest.admits, self.table_size)
 
     def before_save(self):
         if self.card_design and not self.card_preview_image:

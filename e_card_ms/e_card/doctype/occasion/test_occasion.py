@@ -11,7 +11,7 @@ IGNORE_TEST_RECORD_DEPENDENCIES = ["User"]
 
 MANAGER = "occasion.manager.test@example.com"
 OTHER_MANAGER = "other.manager.test@example.com"
-STAFF = "event.staff.test@example.com"
+STAFF = "system.staff.test@example.com"
 
 
 def make_user(email, roles):
@@ -65,7 +65,7 @@ class IntegrationTestOccasion(IntegrationTestCase):
 		super().setUpClass()
 		make_user(MANAGER, ["Occasion Manager", "Desk User"])
 		make_user(OTHER_MANAGER, ["Occasion Manager", "Desk User"])
-		make_user(STAFF, ["Event Manager", "Desk User"])
+		make_user(STAFF, ["System Manager", "Desk User"])
 		# Managers must have accepted the current Terms to send.
 		from e_card_ms.legal import record_acceptance
 
@@ -89,6 +89,25 @@ class IntegrationTestOccasion(IntegrationTestCase):
 		frappe.set_user(STAFF)
 		self.assertTrue(frappe.has_permission("Occasion", "read", doc=occasion.name))
 		self.assertIn(occasion.name, frappe.get_list("Occasion", pluck="name"))
+
+	def test_manager_sees_only_own_occasions_and_no_other_doctypes(self):
+		mine = make_occasion()
+		frappe.set_user(OTHER_MANAGER)
+		theirs = frappe.get_doc({
+			"doctype": "Occasion", "occasion_name": f"Other {frappe.generate_hash(length=6)}",
+			"couple_names": "C & D", "occasion_date": frappe.utils.add_days(frappe.utils.today(), 30),
+			"occasion_time": "Saa 2 usiku", "venue_name": "Ukumbi",
+		}).insert()
+		self.assertEqual(theirs.owner, OTHER_MANAGER)
+		self.assertIn(theirs.name, frappe.get_list("Occasion", pluck="name"))
+		self.assertNotIn(mine.name, frappe.get_list("Occasion", pluck="name"))
+
+		frappe.set_user(MANAGER)
+		self.assertNotIn(theirs.name, frappe.get_list("Occasion", pluck="name"))
+		self.assertFalse(frappe.has_permission("Occasion", "write", doc=theirs.name))
+		for doctype in ("Occasion Subscription", "Message Credit Account", "Credit Transaction",
+						"Credit Purchase", "Occasion Guest Invite Log", "Terms Acceptance", "E Card Settings"):
+			self.assertFalse(frappe.has_permission(doctype, "read"), doctype)
 
 	# ------------------------------------------------------------ contributions
 
@@ -306,6 +325,34 @@ class IntegrationTestOccasion(IntegrationTestCase):
 			res = validate_guest("555111", occasion.name, pin=occasion.gate_pin)
 		self.assertEqual(res["status"], "Already Used")
 
+	def test_double_and_table_cards_admit_several_people(self):
+		validate_guest = frappe.get_attr("e_card_ms.www.gate-checkin.index.validate_guest")
+
+		occasion = make_occasion(table_size=8)
+		occasion.append("guests", {"guest_name": "Wawili", "phone": "0712000031", "card_type": "DOUBLE", "guest_code": "555201"})
+		occasion.append("guests", {"guest_name": "Meza A", "phone": "0712000032", "card_type": "TABLE", "guest_code": "555202"})
+		occasion.append("guests", {"guest_name": "Meza B", "phone": "0712000033", "card_type": "TABLE", "admits": 3, "guest_code": "555203"})
+		occasion.append("guests", {"guest_name": "Mmoja", "phone": "0712000034", "card_type": "VIP", "admits": 5, "guest_code": "555204"})
+		occasion.save()
+		self.assertEqual([g.admits for g in occasion.guests], [2, 8, 3, 1])
+
+		def scan(code):
+			with patch("frappe.db.commit"):
+				return validate_guest(code, occasion.name, pin=occasion.gate_pin)
+
+		self.assertEqual((scan("555201")["status"], scan("555201")["entered"]), ("Valid", 2))
+		res = scan("555201")
+		self.assertEqual((res["status"], res["entered"], res["admits"]), ("Already Used", 2, 2))
+
+		for expected in (1, 2, 3):
+			self.assertEqual(scan("555203")["entered"], expected)
+		self.assertEqual(scan("555203")["status"], "Already Used")
+		self.assertEqual(scan("555202")["admits"], 8)
+
+		self.assertEqual(scan("555204")["status"], "Valid")
+		self.assertEqual(scan("555204")["status"], "Already Used")
+		self.assertEqual(frappe.db.get_value("Occasion Guest", {"guest_code": "555201"}, "entered_count"), 2)
+
 	def test_new_terms_version_blocks_sending_until_accepted(self):
 		from e_card_ms.legal import record_acceptance, terms_pending
 
@@ -391,39 +438,6 @@ class IntegrationTestOccasion(IntegrationTestCase):
 		second.cancel()
 		self.assertEqual(get_balance(MANAGER, "SMS"), sms_before)
 		self.assertEqual(get_balance(MANAGER, "WhatsApp"), wa_before)
-
-	# ------------------------------------------------------------ website dashboard API
-
-	def test_portal_create_edit_and_isolation(self):
-		from e_card_ms.api import portal
-
-		frappe.set_user(MANAGER)
-		name = portal.create_occasion({
-			"occasion_name": f"Portal {frappe.generate_hash(length=6)}", "couple_names": "A & B",
-			"occasion_date": frappe.utils.add_days(frappe.utils.today(), 20), "occasion_time": "Saa 4 asubuhi",
-			"venue_name": "Ukumbi", "assigned_user": OTHER_MANAGER,
-		})["name"]
-		self.assertEqual(frappe.db.get_value("Occasion", name, "assigned_user"), MANAGER,
-						 "assigned_user can't be set from the website")
-
-		data = portal.save_row(name, "contributors", {"contributor_name": "Juma", "phone": "0712000301", "pledged_amount": 1000})
-		cid = data["doc"]["contributors"][0]["contributor_id"]
-		data = portal.save_row(name, "contribution_payments", {"contributor_id": cid, "amount": 1000,
-																"payment_date": frappe.utils.today(), "method": "M-Pesa"})
-		self.assertEqual(data["doc"]["contributors"][0]["payment_status"], "Fully Paid")
-		self.assertEqual(len(data["doc"]["guests"]), 1, "fully paid contributor added to guests")
-		self.assertTrue(data["timeseries"]["collected"])
-
-		guest = data["doc"]["guests"][0]
-		data = portal.save_row(name, "guests", {"name": guest["name"], "guest_name": "Juma Ali", "phone": guest["phone"]})
-		self.assertEqual(data["doc"]["guests"][0]["guest_name"], "Juma Ali")
-		self.assertRaises(frappe.ValidationError, portal.delete_row, name, "contributors", data["doc"]["contributors"][0]["name"])
-		self.assertRaises(frappe.ValidationError, portal.update_occasion, name, {"gate_pin": "000000"})
-
-		frappe.set_user(OTHER_MANAGER)
-		self.assertRaises(frappe.PermissionError, portal.get_occasion, name)
-		self.assertRaises(frappe.PermissionError, portal.save_row, name, "guests", {"guest_name": "X", "phone": "1"})
-		self.assertNotIn(name, [o.name for o in portal.get_home()["occasions"]])
 
 	def test_card_payment_webhook_approves_subscription(self):
 		from e_card_ms.api import payments
