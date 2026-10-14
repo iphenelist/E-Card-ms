@@ -53,6 +53,17 @@ class IntegrationTestECardSettings(IntegrationTestCase):
 				send_sms("0712345678", "Habari")
 		self.assertIn("run out of SMS credits", str(ctx.exception))
 
+	def test_rodsms_unreachable_is_explained(self):
+		import requests
+
+		from e_card_ms.api.sms import send_sms
+
+		reset = requests.ConnectionError("Connection aborted.")
+		with patch("e_card_ms.api.sms.requests.request", side_effect=reset), patch("frappe.log_error"):
+			with self.assertRaises(frappe.ValidationError) as ctx:
+				send_sms("0712345678", "Habari")
+		self.assertIn("Could not reach RodSMS", str(ctx.exception))
+
 	def test_failed_rodsms_send_refunds_e_card_credits(self):
 		"""A RodSMS rejection must not cost the customer E Card credits."""
 		from e_card_ms.api.messaging import send_message

@@ -64,17 +64,28 @@ def _rodsms_request(settings, method: str, path: str, payload: dict | None = Non
     api_key = (settings.get_password("rodsms_api_key", raise_exception=False) or "").strip()
     if not api_key:
         frappe.throw("RodSMS API key is not set in E Card Settings")
-    response = requests.request(
-        method,
-        f"{_rodsms_base_url(settings)}{path}",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Accept": "application/json",
-            **({"Content-Type": "application/json"} if payload is not None else {}),
-        },
-        json=payload,
-        timeout=30,
-    )
+    try:
+        response = requests.request(
+            method,
+            f"{_rodsms_base_url(settings)}{path}",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Accept": "application/json",
+                "User-Agent": f"E-Card/1.0 (+{frappe.utils.get_url()})",
+                **({"Content-Type": "application/json"} if payload is not None else {}),
+            },
+            json=payload,
+            timeout=30,
+        )
+    except requests.RequestException as e:
+        # Outage, firewall or network problem: say so plainly instead of a traceback.
+        frappe.log_error(title="RodSMS unreachable", message=frappe.get_traceback())
+        frappe.throw(
+            f"Could not reach RodSMS ({_rodsms_base_url(settings)}): the server closed the connection "
+            f"or did not answer. This is a network/RodSMS problem, not your settings. "
+            f"Try again later or contact RodSMS support. ({type(e).__name__})",
+            title="RodSMS unreachable",
+        )
     try:
         body = response.json() or {}
     except ValueError:
