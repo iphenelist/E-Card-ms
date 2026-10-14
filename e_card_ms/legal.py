@@ -145,7 +145,7 @@ TERMS_EN = """
 LIMITATIONS_SW = """
 <h2>Mapungufu ya mfumo unayopaswa kujua</h2>
 <ul>
-<li><b>SMS na WhatsApp:</b> ufikaji unategemea watoa huduma wengine (Notify Africa, WaSenderAPI) na mitandao ya simu. Simu inaweza kuwa imezimwa, namba si sahihi, au mpokeaji amezuia ujumbe.</li>
+<li><b>SMS na WhatsApp:</b> ufikaji unategemea watoa huduma wengine (RodSMS, WaSenderAPI) na mitandao ya simu. Simu inaweza kuwa imezimwa, namba si sahihi, au mpokeaji amezuia ujumbe.</li>
 <li><b>WhatsApp:</b> WaSenderAPI si huduma rasmi ya WhatsApp Business. Namba inayotuma <b>inaweza kuzuiwa na WhatsApp</b> ikituma ujumbe mwingi; ufikaji haudhaminiwi.</li>
 <li><b>SMS ndefu:</b> hugawanywa vipande kadhaa (na credits kadhaa). Emoji au herufi maalum hupunguza kipande kuwa herufi 70.</li>
 <li><b>Malipo ya simu:</b> credits huonekana baada ya Abliner kuthibitisha malipo, inaweza kuchukua dakika chache. Ukikatwa fedha bila kupata credits ndani ya dakika 60, wasiliana nasi ukiwa na namba ya kumbukumbu.</li>
@@ -161,7 +161,7 @@ LIMITATIONS_SW = """
 LIMITATIONS_EN = """
 <h2>Known limitations you should be aware of</h2>
 <ul>
-<li><b>SMS and WhatsApp:</b> delivery depends on third-party providers (Notify Africa, WaSenderAPI) and mobile networks. A phone may be off, a number wrong, or the recipient may block messages.</li>
+<li><b>SMS and WhatsApp:</b> delivery depends on third-party providers (RodSMS, WaSenderAPI) and mobile networks. A phone may be off, a number wrong, or the recipient may block messages.</li>
 <li><b>WhatsApp:</b> WaSenderAPI is not WhatsApp's official Business API. The sending number <b>can be restricted or blocked by WhatsApp</b> when sending in volume; delivery is not guaranteed.</li>
 <li><b>Long SMS:</b> split into several parts (and several credits). Emoji or special characters shorten each part to 70 characters.</li>
 <li><b>Mobile payments:</b> credits appear once Abliner confirms the payment, which can take a few minutes. If you were charged but have no credits after 60 minutes, contact us with the reference number.</li>

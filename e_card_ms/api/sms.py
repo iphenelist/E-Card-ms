@@ -3,18 +3,45 @@ import requests
 
 from e_card_ms.api.messaging import send_message, sender_line
 
-SMS_API_URL = "https://api.notify.africa/api/v1/api/messages/send"
+NOTIFY_AFRICA_URL = "https://api.notify.africa/api/v1/api/messages/send"
+RODSMS_DEFAULT_BASE_URL = "https://rodsms.com/api/v1"
+
+# RodSMS error codes (https://rodsms.com/docs) -> what the admin should do.
+RODSMS_ERRORS = {
+    "unauthorized": "RodSMS rejected the API key (missing, revoked or IP-restricted). Check E Card Settings.",
+    "insufficient_credits": "The RodSMS account has run out of SMS credits. Top up on rodsms.com.",
+    "sender_id_unusable": "The RodSMS Sender ID is not approved or not active. Check it in E Card Settings.",
+    "insufficient_scope": "The RodSMS API key lacks the sms:send permission.",
+    "rate_limited": "RodSMS rate limit reached. Try again in a moment.",
+    "invalid_request": "RodSMS rejected the phone number or message.",
+    "validation_error": "RodSMS rejected the request.",
+}
+
+
+def _settings():
+    return frappe.get_single("E Card Settings")
+
+
+def _provider(settings) -> str:
+    return settings.sms_provider or "RodSMS"
 
 
 def get_credentials():
-    settings = frappe.get_single("E Card Settings")
-    api_token = settings.get_password("notify_africa_api_token", raise_exception=False)
-    sender_id = settings.notify_africa_sms_sender_id
+    """(api_token, sender_id) for the selected SMS provider."""
+    settings = _settings()
+    if _provider(settings) == "Notify Africa":
+        api_token = settings.get_password("notify_africa_api_token", raise_exception=False)
+        sender_id = settings.notify_africa_sms_sender_id
+        label = "Notify Africa"
+    else:
+        api_token = settings.get_password("rodsms_api_key", raise_exception=False)
+        sender_id = settings.rodsms_sender_id
+        label = "RodSMS"
     if not api_token:
-        frappe.throw("Notify Africa API Token is not set in E Card Settings")
+        frappe.throw(f"{label} API key is not set in E Card Settings")
     if not sender_id:
-        frappe.throw("Notify Africa SMS Sender ID is not set in E Card Settings")
-    return api_token, sender_id
+        frappe.throw(f"{label} Sender ID is not set in E Card Settings")
+    return api_token.strip(), sender_id.strip()
 
 
 def normalize_phone(phone: str) -> str:
@@ -22,11 +49,63 @@ def normalize_phone(phone: str) -> str:
 
 
 def send_sms(phone: str, message: str) -> dict:
-    """Send a single SMS via the Notify Africa SMS API"""
+    """Send a single SMS through the provider selected in E Card Settings."""
+    settings = _settings()
+    if _provider(settings) == "Notify Africa":
+        return _send_notify_africa(phone, message)
+    return _send_rodsms(settings, phone, message)
+
+
+def _rodsms_base_url(settings) -> str:
+    return (settings.rodsms_base_url or RODSMS_DEFAULT_BASE_URL).strip().rstrip("/")
+
+
+def _rodsms_request(settings, method: str, path: str, payload: dict | None = None) -> dict:
+    api_key = (settings.get_password("rodsms_api_key", raise_exception=False) or "").strip()
+    if not api_key:
+        frappe.throw("RodSMS API key is not set in E Card Settings")
+    response = requests.request(
+        method,
+        f"{_rodsms_base_url(settings)}{path}",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Accept": "application/json",
+            **({"Content-Type": "application/json"} if payload is not None else {}),
+        },
+        json=payload,
+        timeout=30,
+    )
+    try:
+        body = response.json() or {}
+    except ValueError:
+        body = {}
+    if not response.ok or not body.get("success"):
+        error = body.get("error") or {}
+        code = error.get("code") or str(response.status_code)
+        detail = error.get("message") or response.text[:300]
+        hint = RODSMS_ERRORS.get(code, "RodSMS request failed.")
+        frappe.throw(f"{hint} ({code}: {detail}; request {body.get('request_id', '-')})")
+    return body
+
+
+def _send_rodsms(settings, phone: str, message: str) -> dict:
+    from e_card_ms.utils.phone import normalize_phone as to_international
+
+    _api_key, sender_id = get_credentials()
+    body = _rodsms_request(settings, "POST", "/messages", {
+        "sender_id": sender_id,
+        "recipient": to_international(phone),
+        "message": message,
+        "sms_type": "transactional",
+    })
+    return body.get("data") or {}
+
+
+def _send_notify_africa(phone: str, message: str) -> dict:
     api_token, sender_id = get_credentials()
 
     response = requests.post(
-        SMS_API_URL,
+        NOTIFY_AFRICA_URL,
         headers={
             "Authorization": f"Bearer {api_token}",
             "Content-Type": "application/json",
@@ -41,6 +120,14 @@ def send_sms(phone: str, message: str) -> dict:
     if not response.ok:
         frappe.throw(f"Notify Africa SMS API error ({response.status_code}): {response.text}")
     return response.json()
+
+
+def rodsms_account_status() -> dict:
+    """RodSMS credit balance and approved Sender IDs (needs sms:read)."""
+    settings = _settings()
+    balance = _rodsms_request(settings, "GET", "/balance").get("data")
+    sender_ids = _rodsms_request(settings, "GET", "/sender-ids").get("data")
+    return {"balance": balance, "sender_ids": sender_ids}
 
 
 def build_invitation_message(occasion_doc, guest_row) -> str:

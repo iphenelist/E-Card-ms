@@ -13,6 +13,24 @@ frappe.ui.form.on("E Card Settings", {
 		run_test(frm, "send_test_sms", __("Test SMS sent."));
 	},
 
+	check_sms_balance_btn(frm) {
+		const go = () =>
+			frm.call({ method: "check_sms_balance", doc: frm.doc, freeze: true }).then((r) => {
+				if (r.exc) return;
+				const data = r.message || {};
+				const ids = (Array.isArray(data.sender_ids) ? data.sender_ids : [])
+					.map((s) => frappe.utils.escape_html(typeof s === "string" ? s : s.sender_id || s.name || JSON.stringify(s)))
+					.join(", ");
+				frappe.msgprint({
+					title: __("RodSMS account"),
+					indicator: "blue",
+					message: `<p><b>${__("Balance")}</b></p><pre style="white-space:pre-wrap">${frappe.utils.escape_html(JSON.stringify(data.balance, null, 2))}</pre>
+						<p><b>${__("Approved Sender IDs")}</b>: ${ids || "—"}</p>`,
+				});
+			});
+		frm.is_dirty() ? frm.save().then(go) : go();
+	},
+
 	send_test_whatsapp_btn(frm) {
 		run_test(frm, "send_test_whatsapp", __("Test WhatsApp sent."));
 	},
