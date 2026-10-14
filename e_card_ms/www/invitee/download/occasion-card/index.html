@@ -24,7 +24,7 @@
       📅 {{ frappe.utils.formatdate(occasion.occasion_date, "dd MMMM yyyy") }}
     </p>
     <p style="margin:5px 0; font-size:13px; color:#5C2D1E;">
-      ⏰ Saa {{ occasion.occasion_time }} ALASIRI
+      ⏰ {{ occasion.occasion_time }}
     </p>
     <p style="margin:5px 0; font-size:13px; color:#5C2D1E;">
       📍 {{ occasion.venue_name }}{% if occasion.venue_address %}, {{ occasion.venue_address }}{% endif %}
@@ -101,6 +101,12 @@
     {% if occasion.contact_2 %} | {{ occasion.contact_2 }}{% endif %}
   </p>
   {% endif %}
+
+  <p style="font-size:11px; color:#aaa; font-family:sans-serif; margin-top:12px;">
+    Mwaliko huu umetumwa na mwandaaji wa tukio kupitia E Card ·
+    <a href="/privacy" style="color:#aaa;">Sera ya Faragha</a> ·
+    <a href="/terms" style="color:#aaa;">Vigezo na Masharti</a>
+  </p>
 
 </div>
 

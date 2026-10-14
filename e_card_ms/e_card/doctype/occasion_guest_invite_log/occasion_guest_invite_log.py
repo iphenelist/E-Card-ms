@@ -1,12 +1,14 @@
 import frappe
 from frappe.model.document import Document
 
+from e_card_ms.permissions import is_staff
+
 
 def get_permission_query_conditions(user=None):
-	"""Restrict Invite Log visibility to occasions assigned to the requesting user, unless System Manager."""
+	"""Restrict Invite Log visibility to occasions assigned to the requesting user, unless staff."""
 	if not user:
 		user = frappe.session.user
-	if "System Manager" in frappe.get_roles(user):
+	if is_staff(user):
 		return ""
 	return (
 		"`tabOccasion Guest Invite Log`.`occasion` in "
@@ -15,10 +17,10 @@ def get_permission_query_conditions(user=None):
 
 
 def has_permission(doc, ptype="read", user=None):
-	"""Restrict direct Invite Log access to occasions assigned to the requesting user, unless System Manager."""
+	"""Restrict direct Invite Log access to occasions assigned to the requesting user, unless staff."""
 	if not user:
 		user = frappe.session.user
-	if "System Manager" in frappe.get_roles(user):
+	if is_staff(user):
 		return True
 	return frappe.db.get_value("Occasion", doc.occasion, "assigned_user") == user
 

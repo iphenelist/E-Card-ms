@@ -120,6 +120,11 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  .pin-wrap { margin-bottom: 14px; display: none; }
+  .pin-wrap .pin-hint { color: var(--muted); font-size: 12px; margin-top: 8px; line-height: 1.5; }
+  .pin-set { display:none; text-align:center; color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  .pin-set a { color: var(--gold-light); cursor: pointer; text-decoration: underline; }
+
   .result-countdown { font-size: 12px; color: var(--muted); margin-top: 10px; font-weight: 600; }
 
   @keyframes shake {
@@ -139,6 +144,15 @@
     <h1>{{ page_title }}</h1>
     <p>Scan QR code kuthibitisha mgeni</p>
   </div>
+
+  <div class="manual-wrap pin-wrap" id="pinWrap">
+    <label for="pinInput">🔒 PIN ya geti / Gate PIN</label>
+    <input type="password" inputmode="numeric" id="pinInput" placeholder="••••••" maxlength="6" autocomplete="off"
+           onkeydown="if (event.key === 'Enter') savePin();" />
+    <button onclick="savePin()">Hifadhi PIN / Save PIN</button>
+    <div class="pin-hint">Muulize mwandaaji PIN ya tukio hili. Itakumbukwa kwenye simu hii. / Ask the organiser for this occasion's PIN. It is remembered on this phone.</div>
+  </div>
+  <div class="pin-set" id="pinSet">🔒 PIN imehifadhiwa · <a onclick="forgetPin()">Badilisha PIN</a></div>
 
   <div class="stats-bar">
     <div class="stat-card">
@@ -199,6 +213,42 @@ let requestInFlight = false;
 let countdownTimer = null;
 const secureContext = window.isSecureContext;
 const PAGE_OCCASION = {{ scan_occasion | tojson }};
+let pendingScan = null;  // a scan waiting for the PIN to be entered
+
+function pinKey(occasion) { return "ecard_gate_pin:" + (occasion || ""); }
+function getPin(occasion) {
+  try { return localStorage.getItem(pinKey(occasion)) || ""; } catch (e) { return ""; }
+}
+function setPin(occasion, pin) {
+  try { pin ? localStorage.setItem(pinKey(occasion), pin) : localStorage.removeItem(pinKey(occasion)); } catch (e) {}
+}
+function currentOccasion() { return (pendingScan && pendingScan.occasion) || PAGE_OCCASION; }
+
+function renderPinState() {
+  const occ = currentOccasion();
+  const hasPin = !!getPin(occ);
+  document.getElementById("pinWrap").style.display = (occ && !hasPin) ? "block" : "none";
+  document.getElementById("pinSet").style.display = (occ && hasPin) ? "block" : "none";
+}
+
+function savePin() {
+  const pin = document.getElementById("pinInput").value.trim();
+  if (!/^[0-9]{4,6}$/.test(pin)) { alert("PIN ni namba 6 / The PIN is 6 digits"); return; }
+  setPin(currentOccasion(), pin);
+  document.getElementById("pinInput").value = "";
+  renderPinState();
+  if (pendingScan) {
+    const scan = pendingScan;
+    pendingScan = null;
+    validateCode(scan.code, scan.occasion);
+  }
+}
+
+function forgetPin() {
+  setPin(currentOccasion(), "");
+  renderPinState();
+  document.getElementById("pinInput").focus();
+}
 
 function initScanner() {
   document.getElementById("liveScannerCard").style.display = secureContext ? "block" : "none";
@@ -257,10 +307,20 @@ function validateCode(code, occasionName) {
       "Content-Type": "application/json",
       "X-Frappe-CSRF-Token": "{{ frappe.session.csrf_token }}"
     },
-    body: JSON.stringify({ guest_code: code, occasion_name: occasionName })
+    body: JSON.stringify({ guest_code: code, occasion_name: occasionName, pin: getPin(occasionName) })
   })
   .then(r => r.json())
-  .then(data => showResult(data.message))
+  .then(data => {
+    const res = data.message || {};
+    if (res.status === "PIN Required") {
+      // Wrong or missing PIN: forget it, ask for it, and retry this scan after.
+      setPin(occasionName, "");
+      pendingScan = { code, occasion: occasionName };
+      renderPinState();
+      document.getElementById("pinInput").focus();
+    }
+    showResult(res);
+  })
   .catch(() => showResult({ valid: false, status: "Invalid", message: "❌ Hitilafu ya mtandao", color: "red" }))
   .finally(() => setLoading(false));
 }
@@ -272,7 +332,7 @@ function showResult(res) {
   document.getElementById("liveScannerCard").style.display = "none";
   document.getElementById("insecureNotice").style.display = "none";
   document.getElementById("resultIcon").textContent =
-    res.status === "Valid" ? "✅" : res.status === "Already Used" ? "⚠️" : "❌";
+    res.status === "Valid" ? "✅" : res.status === "Already Used" ? "⚠️" : res.status === "PIN Required" ? "🔒" : "❌";
   document.getElementById("resultMessage").textContent = res.message || "";
   document.getElementById("resultName").textContent = res.guest_name ? `Mgeni: ${res.guest_name}` : "";
   document.getElementById("resultOccasion").textContent = res.occasion_name ? `Tukio: ${res.occasion_name}` : "";
@@ -288,7 +348,9 @@ function showResult(res) {
   } else {
     box.classList.add("shake");
     setTimeout(() => box.classList.remove("shake"), 400);
-    if (res.status === "Already Used") {
+    if (res.status === "PIN Required") {
+      playBeep(330, 200);
+    } else if (res.status === "Already Used") {
       stats.duplicate++;
       document.getElementById("statDuplicate").textContent = stats.duplicate;
       playBeep(440, 400);
@@ -343,6 +405,7 @@ window.addEventListener("load", () => {
 });
 {% endif %}
 
+renderPinState();
 initScanner();
 </script>
 {% endblock %}

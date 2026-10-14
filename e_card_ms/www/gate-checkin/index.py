@@ -1,3 +1,5 @@
+import secrets
+
 import frappe
 from frappe.rate_limiter import rate_limit
 
@@ -14,18 +16,31 @@ def get_context(context):
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=20, seconds=60)
-def validate_guest(guest_code: str, occasion_name: str = None):
+def validate_guest(guest_code: str, occasion_name: str | None = None, pin: str | None = None):
     """Validate a guest QR code at the gate.
 
     occasion_name is required: without it this would search guest codes
     sitewide, letting one occasion's gate page check in (and thereby
     invalidate) another occasion's guests.
+
+    pin is the Occasion's gate PIN. Without it anyone holding a QR link (which
+    names the occasion) could guess codes and burn real guests' cards before
+    the event. Logged-in users who can open the Occasion don't need it.
     """
     if not guest_code or not occasion_name:
         return {"valid": False, "status": "Invalid", "message": "❌ Invalid QR Code", "color": "red"}
 
-    if not frappe.db.exists("Occasion", occasion_name):
+    gate_pin = frappe.db.get_value("Occasion", occasion_name, "gate_pin")
+    if gate_pin is None:
         return {"valid": False, "status": "Invalid", "message": "❌ Invalid QR Code", "color": "red"}
+
+    if not _can_skip_pin(occasion_name) and not (pin and secrets.compare_digest(str(pin), gate_pin)):
+        return {
+            "valid": False,
+            "status": "PIN Required",
+            "message": "🔒 Weka PIN sahihi ya geti. / Enter the correct gate PIN.",
+            "color": "red",
+        }
 
     filters = {"guest_code": guest_code, "parent": occasion_name}
 
@@ -84,3 +99,9 @@ def validate_guest(guest_code: str, occasion_name: str = None):
         "couple_names": occasion.couple_names if occasion else "",
         "color": "green"
     }
+
+
+def _can_skip_pin(occasion_name: str) -> bool:
+    if frappe.session.user == "Guest":
+        return False
+    return frappe.has_permission("Occasion", "read", doc=occasion_name)

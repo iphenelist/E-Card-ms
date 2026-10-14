@@ -1,6 +1,8 @@
 import frappe
 import requests
 
+from e_card_ms.api.messaging import send_message, sender_line
+
 SMS_API_URL = "https://api.notify.africa/api/v1/api/messages/send"
 
 
@@ -53,24 +55,12 @@ def build_invitation_message(occasion_doc, guest_row) -> str:
         f"Habari {guest_row.guest_name}, Unakaribishwa kwenye {occasion_doc.occasion_name}, "
         f"Kadi yako ni {guest_row.card_type} Na Code yako ni {guest_row.guest_code}. "
         f"Tarehe: {date_str}, Ukumbi: {occasion_doc.venue_name}. "
-        f"MUDA: Saa {occasion_doc.occasion_time} ALASIRI."
+        f"MUDA: {occasion_doc.occasion_time}."
         f"{dress_line} "
         f"Fika na sms hii au Download card yako kwa kubonyeza link hii\n"
-        f"{download_url}"
+        f"{download_url}\n"
+        f"{sender_line(occasion_doc)}"
     )
-
-
-def log_invite(occasion_doc, guest_row, success: bool, response) -> None:
-    """Record an SMS send attempt in the Occasion's Invite Log"""
-    frappe.get_doc({
-        "doctype": "Occasion Guest Invite Log",
-        "occasion": occasion_doc.name,
-        "guest_code": guest_row.guest_code,
-        "channel": "SMS",
-        "sent_at": frappe.utils.now(),
-        "success": 1 if success else 0,
-        "response": str(response)[:140],
-    }).insert(ignore_permissions=True)
 
 
 def send_invitation(occasion_doc, guest_row) -> dict:
@@ -79,13 +69,15 @@ def send_invitation(occasion_doc, guest_row) -> dict:
         frappe.throw(f"No phone number for {guest_row.guest_name}")
 
     message = build_invitation_message(occasion_doc, guest_row)
-    try:
-        result = send_sms(guest_row.phone, message)
-    except Exception as e:
-        log_invite(occasion_doc, guest_row, success=False, response=e)
-        raise
-
-    log_invite(occasion_doc, guest_row, success=True, response=result)
+    result = send_message(
+        occasion_doc,
+        "SMS",
+        guest_row.phone,
+        message,
+        message_type="Invitation",
+        guest_code=guest_row.guest_code,
+        recipient_name=guest_row.guest_name,
+    )
 
     frappe.get_doc({
         "doctype": "Comment",
@@ -102,6 +94,8 @@ def send_invitation(occasion_doc, guest_row) -> dict:
 def send_single(occasion_name: str, guest_code: str):
     """Whitelisted: send SMS invitation to one guest by guest_code"""
     occasion = frappe.get_doc("Occasion", occasion_name)
+    occasion.check_permission("write")
+    occasion.assert_can_send()
     for guest in occasion.guests:
         if guest.guest_code == guest_code:
             result = send_invitation(occasion, guest)

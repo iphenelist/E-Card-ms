@@ -1,9 +1,24 @@
 frappe.ready(function () {
-	const price_per_guest_card = {{ price_per_guest_card }};
+	// Graduated card pricing (e.g. cards 1–100 at 900, 101+ at 1,200) lives in
+	// E Card Settings, so the live estimate asks the server for a quote.
+	let timer = null;
 
 	function update_subscription_price() {
-		const guests = cint(frappe.web_form.get_value("number_of_guests")) || 0;
-		frappe.web_form.set_value("subscription_price", guests * price_per_guest_card);
+		clearTimeout(timer);
+		timer = setTimeout(() => {
+			const guests = cint(frappe.web_form.get_value("number_of_guests")) || 0;
+			if (guests <= 0) {
+				frappe.web_form.set_value("subscription_price", 0);
+				return;
+			}
+			frappe.call({
+				method: "e_card_ms.utils.pricing.get_quote",
+				args: { number_of_guests: guests },
+				callback(r) {
+					if (r.message) frappe.web_form.set_value("subscription_price", r.message.price);
+				},
+			});
+		}, 300);
 	}
 
 	// frappe.web_form.on() only fires on blur (it hooks the field's model-commit,

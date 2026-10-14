@@ -35,6 +35,11 @@
   "card_design_preview",
   "card_preview_image",
   "guests_tab",
+  "billing_section",
+  "subscription_status_html",
+  "col_break_billing",
+  "request_subscription_btn",
+  "buy_credits_btn",
   "guests_section",
   "guests",
   "generate_cards_btn",
@@ -44,7 +49,42 @@
   "send_sms_btn",
   "checkin_section",
   "allow_reentry",
+  "gate_pin",
   "open_gate_checkin_btn",
+  "budget_tab",
+  "budget_summary_section",
+  "total_budget",
+  "total_spent",
+  "col_break_summary_1",
+  "total_pledged",
+  "total_collected",
+  "col_break_summary_2",
+  "outstanding_pledges",
+  "funding_gap",
+  "budget_items_section",
+  "budget_items",
+  "contributors_section",
+  "contribution_deadline",
+  "auto_add_paid_contributors",
+  "col_break_contrib",
+  "payment_instructions",
+  "contributors_table_section",
+  "contributors",
+  "contributor_actions_section",
+  "record_payment_btn",
+  "add_paid_to_guests_btn",
+  "col_break_contrib_actions_1",
+  "import_contributors_btn",
+  "export_contributors_btn",
+  "col_break_contrib_actions_2",
+  "send_reminders_btn",
+  "payments_section",
+  "contribution_payments",
+  "reminders_section",
+  "reminder_template",
+  "col_break_reminders",
+  "auto_reminders",
+  "reminder_interval_days",
   "ocassion_statistics_tab",
   "statistics_html"
  ],
@@ -74,7 +114,7 @@
    "reqd": 1
   },
   {
-   "description": "e.g. 9:00 or Saa 3:00 ALASIRI",
+   "description": "e.g. Saa 10:00 jioni, or 4:00 PM — sent exactly as typed",
    "fieldname": "occasion_time",
    "fieldtype": "Data",
    "label": "Occasion Time",
@@ -96,7 +136,7 @@
    "label": "Venue Address"
   },
   {
-   "description": "Paste a Google Maps link \u2014 shown as View Location button",
+   "description": "Paste a Google Maps link — shown as View Location button",
    "fieldname": "venue_location",
    "fieldtype": "Data",
    "label": "Venue Google Maps URL"
@@ -135,7 +175,7 @@
    "options": "Draft\nActive\nCompleted"
   },
   {
-   "description": "Only this user (with the Event Manager role) and System Manager can see this occasion. Only a System Manager can set/change this.",
+   "description": "The Occasion Manager who owns this occasion. Set automatically to whoever creates it; only a System Manager can change it.",
    "fieldname": "assigned_user",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -275,13 +315,223 @@
   {
    "fieldname": "column_break_liqk",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "gate_pin",
+   "fieldtype": "Data",
+   "label": "Gate PIN",
+   "read_only": 1,
+   "description": "Gate staff enter this PIN once on the check-in page before scanning. Keep it private."
+  },
+  {
+   "fieldname": "billing_section",
+   "fieldtype": "Section Break",
+   "label": "Subscription & Credits"
+  },
+  {
+   "fieldname": "subscription_status_html",
+   "fieldtype": "HTML",
+   "label": "Subscription Status"
+  },
+  {
+   "fieldname": "col_break_billing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "request_subscription_btn",
+   "fieldtype": "Button",
+   "label": "Request Card Subscription / Lipia Kadi"
+  },
+  {
+   "fieldname": "buy_credits_btn",
+   "fieldtype": "Button",
+   "label": "Buy SMS / WhatsApp Credits"
+  },
+  {
+   "fieldname": "budget_tab",
+   "fieldtype": "Tab Break",
+   "label": "Bajeti & Michango"
+  },
+  {
+   "fieldname": "budget_summary_section",
+   "fieldtype": "Section Break",
+   "label": "Summary"
+  },
+  {
+   "fieldname": "total_budget",
+   "fieldtype": "Currency",
+   "label": "Total Budget",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_spent",
+   "fieldtype": "Currency",
+   "label": "Total Spent",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_summary_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_pledged",
+   "fieldtype": "Currency",
+   "label": "Total Pledged (Ahadi)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_collected",
+   "fieldtype": "Currency",
+   "label": "Total Collected",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_summary_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "outstanding_pledges",
+   "fieldtype": "Currency",
+   "label": "Outstanding Pledges",
+   "read_only": 1
+  },
+  {
+   "fieldname": "funding_gap",
+   "fieldtype": "Currency",
+   "label": "Funding Gap (Budget − Collected)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "budget_items_section",
+   "fieldtype": "Section Break",
+   "label": "Budget"
+  },
+  {
+   "fieldname": "budget_items",
+   "fieldtype": "Table",
+   "label": "Budget Items",
+   "options": "Occasion Budget Item"
+  },
+  {
+   "fieldname": "contributors_section",
+   "fieldtype": "Section Break",
+   "label": "Contributors (Wachangiaji)"
+  },
+  {
+   "fieldname": "contribution_deadline",
+   "fieldtype": "Date",
+   "label": "Contribution Deadline"
+  },
+  {
+   "fieldname": "auto_add_paid_contributors",
+   "fieldtype": "Check",
+   "label": "Automatically add fully paid contributors to Guests",
+   "default": "1"
+  },
+  {
+   "fieldname": "col_break_contrib",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "payment_instructions",
+   "fieldtype": "Small Text",
+   "label": "Payment Instructions",
+   "description": "How contributors should pay, e.g. M-Pesa 07XX XXX XXX (Jina). Used in reminders as {payment_info}."
+  },
+  {
+   "fieldname": "contributors",
+   "fieldtype": "Table",
+   "label": "Contributors",
+   "options": "Occasion Contributor"
+  },
+  {
+   "fieldname": "contributor_actions_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "record_payment_btn",
+   "fieldtype": "Button",
+   "label": "Rekodi Malipo / Record Payment"
+  },
+  {
+   "fieldname": "add_paid_to_guests_btn",
+   "fieldtype": "Button",
+   "label": "Add Fully Paid Contributors to Guests"
+  },
+  {
+   "fieldname": "col_break_contrib_actions_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "import_contributors_btn",
+   "fieldtype": "Button",
+   "label": "Import Contributors (Excel/CSV)"
+  },
+  {
+   "fieldname": "export_contributors_btn",
+   "fieldtype": "Button",
+   "label": "Export Contributors (Excel)"
+  },
+  {
+   "fieldname": "col_break_contrib_actions_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "send_reminders_btn",
+   "fieldtype": "Button",
+   "label": "Send Contribution Reminders"
+  },
+  {
+   "fieldname": "payments_section",
+   "fieldtype": "Section Break",
+   "label": "Contribution Payments (Malipo)"
+  },
+  {
+   "fieldname": "contribution_payments",
+   "fieldtype": "Table",
+   "label": "Payments",
+   "options": "Occasion Contribution Payment"
+  },
+  {
+   "fieldname": "reminders_section",
+   "fieldtype": "Section Break",
+   "label": "Reminder Settings",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "reminder_template",
+   "fieldtype": "Small Text",
+   "label": "Reminder Message",
+   "description": "Placeholders: {name} {pledged} {paid} {balance} {occasion} {date} {deadline} {payment_info} {sender}. Leave blank for the default Swahili message."
+  },
+  {
+   "fieldname": "col_break_reminders",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "auto_reminders",
+   "fieldtype": "Check",
+   "label": "Send reminders automatically",
+   "default": "0",
+   "description": "Every N days until the deadline (or the occasion date), remind contributors who still have a balance. Uses your credits."
+  },
+  {
+   "fieldname": "reminder_interval_days",
+   "fieldtype": "Int",
+   "label": "Remind every (days)",
+   "default": "7",
+   "depends_on": "auto_reminders"
+  },
+  {
+   "fieldname": "contributors_table_section",
+   "fieldtype": "Section Break"
   }
  ],
  "hide_toolbar": 1,
  "image_field": "card_design",
  "links": [],
  "make_attachments_public": 1,
- "modified": "2026-08-11 16:48:55.520094",
+ "modified": "2026-10-14 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "E Card",
  "name": "Occasion",
@@ -315,8 +565,9 @@
    "email": 1,
    "print": 1,
    "read": 1,
-   "role": "Occasion Client",
-   "write": 1
+   "role": "Occasion Manager",
+   "write": 1,
+   "create": 1
   },
   {
    "permlevel": 1,

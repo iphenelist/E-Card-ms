@@ -26,7 +26,7 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/e_card_ms/css/e_card_ms.css"
-# app_include_js = "/assets/e_card_ms/js/e_card_ms.js"
+app_include_js = "/assets/e_card_ms/js/ecard_desk.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/e_card_ms/css/e_card_ms.css"
@@ -57,7 +57,7 @@ app_license = "mit"
 # ----------
 
 # application home page (will override Website Settings)
-# home_page = "login"
+home_page = "e-card"
 
 # website user home page (by Role)
 # role_home_page = {
@@ -132,12 +132,18 @@ after_install = "e_card_ms.install.after_install"
 
 permission_query_conditions = {
     "Occasion": "e_card_ms.e_card.doctype.occasion.occasion.get_permission_query_conditions",
+    "Message Credit Account": "e_card_ms.permissions.credit_account_query",
+    "Credit Transaction": "e_card_ms.permissions.credit_transaction_query",
+    "Credit Purchase": "e_card_ms.permissions.credit_purchase_query",
     "Occasion Subscription": "e_card_ms.e_card.doctype.occasion_subscription.occasion_subscription.get_permission_query_conditions",
     "Occasion Guest Invite Log": "e_card_ms.e_card.doctype.occasion_guest_invite_log.occasion_guest_invite_log.get_permission_query_conditions",
 }
 
 has_permission = {
     "Occasion": "e_card_ms.e_card.doctype.occasion.occasion.has_permission",
+    "Message Credit Account": "e_card_ms.permissions.credit_account_has_permission",
+    "Credit Transaction": "e_card_ms.permissions.credit_transaction_has_permission",
+    "Credit Purchase": "e_card_ms.permissions.credit_purchase_has_permission",
     "Occasion Subscription": "e_card_ms.e_card.doctype.occasion_subscription.occasion_subscription.has_permission",
     "Occasion Guest Invite Log": "e_card_ms.e_card.doctype.occasion_guest_invite_log.occasion_guest_invite_log.has_permission",
 }
@@ -146,6 +152,10 @@ website_route_rules = [
     {"from_route": "/invitee/download/occasion-card/<guest_code>", "to_route": "invitee/download/occasion-card"},
     {"from_route": "/gate-checkin", "to_route": "gate-checkin"},
 ]
+
+boot_session = "e_card_ms.api.auth.boot_session"
+
+jinja = {"methods": ["e_card_ms.utils.assets.asset_version"]}
 
 # Document Events
 # ---------------
@@ -164,7 +174,11 @@ website_route_rules = [
 
 scheduler_events = {
 	"cron": {
-		"0 * * * *": ["e_card_ms.tasks.process_subscriptions"],
+		"0 * * * *": [
+			"e_card_ms.tasks.process_subscriptions",
+			"e_card_ms.tasks.process_contribution_reminders",
+		],
+		"*/5 * * * *": ["e_card_ms.api.payments.sync_pending_purchases"],
 	}
 }
 
