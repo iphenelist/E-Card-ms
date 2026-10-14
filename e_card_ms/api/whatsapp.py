@@ -1,6 +1,8 @@
 import frappe
 import requests
 
+from e_card_ms.api.messaging import send_message, sender_line
+
 WASENDER_BASE_URL = "https://www.wasenderapi.com/api"
 
 
@@ -57,6 +59,29 @@ def send_image(phone: str, image_url: str, caption: str = "") -> dict:
     return response.json()
 
 
+def send_document(phone: str, document_url: str, file_name: str, caption: str = "") -> dict:
+    """Send a WhatsApp document (e.g. a PDF receipt) via the WaSenderAPI.
+    The URL must be publicly reachable by WaSenderAPI's servers."""
+    api_token = get_credentials()
+
+    payload = {"to": normalize_phone(phone), "documentUrl": document_url, "fileName": file_name}
+    if caption:
+        payload["text"] = caption
+
+    response = requests.post(
+        f"{WASENDER_BASE_URL}/send-message",
+        headers={
+            "Authorization": f"Bearer {api_token}",
+            "Content-Type": "application/json",
+        },
+        json=payload,
+        timeout=30,
+    )
+    if not response.ok:
+        frappe.throw(f"WaSenderAPI error ({response.status_code}): {response.text}")
+    return response.json()
+
+
 def build_invitation_message(occasion_doc, guest_row) -> str:
     """Build the Swahili WhatsApp text message for a guest invitation"""
     date_str = frappe.utils.formatdate(occasion_doc.occasion_date, "dd-MM-yyyy")
@@ -77,7 +102,7 @@ def build_invitation_message(occasion_doc, guest_row) -> str:
         f"Namba ya Kadi: {guest_row.guest_code}",
         f"Tarehe: {date_str}",
         f"Ukumbi: {occasion_doc.venue_name}",
-        f"Muda: Saa {occasion_doc.occasion_time} ALASIRI",
+        f"Muda: {occasion_doc.occasion_time}",
     ]
     if occasion_doc.dress_code:
         lines.append(f"Dress Code: {occasion_doc.dress_code}")
@@ -87,6 +112,8 @@ def build_invitation_message(occasion_doc, guest_row) -> str:
         "",
         "Fika na ujumbe huu au pakua kadi yako kwenye link hii:",
         download_url,
+        "",
+        sender_line(occasion_doc),
     ]
 
     return "\n".join(lines)
@@ -97,19 +124,6 @@ def get_card_image_url(guest_row) -> str:
     base = frappe.utils.get_url().rstrip("/")
     url = guest_row.card_image
     return url if url.startswith("http") else f"{base}{url}"
-
-
-def log_invite(occasion_doc, guest_row, success: bool, response) -> None:
-    """Record a WhatsApp send attempt in the Occasion's Invite Log"""
-    frappe.get_doc({
-        "doctype": "Occasion Guest Invite Log",
-        "occasion": occasion_doc.name,
-        "guest_code": guest_row.guest_code,
-        "channel": "WhatsApp",
-        "sent_at": frappe.utils.now(),
-        "success": 1 if success else 0,
-        "response": str(response)[:140],
-    }).insert(ignore_permissions=True)
 
 
 def send_invitation(occasion_doc, guest_row) -> dict:
@@ -126,13 +140,15 @@ def send_invitation(occasion_doc, guest_row) -> dict:
         frappe.throw(f"Card not generated for {guest_row.guest_name}. Run Generate All Cards first.")
 
     message = build_invitation_message(occasion_doc, guest_row)
-    try:
-        result = send_text(guest_row.phone, message)
-    except Exception as e:
-        log_invite(occasion_doc, guest_row, success=False, response=e)
-        raise
-
-    log_invite(occasion_doc, guest_row, success=True, response=result)
+    result = send_message(
+        occasion_doc,
+        "WhatsApp",
+        guest_row.phone,
+        message,
+        message_type="Invitation",
+        guest_code=guest_row.guest_code,
+        recipient_name=guest_row.guest_name,
+    )
 
     frappe.get_doc({
         "doctype": "Comment",
@@ -149,6 +165,8 @@ def send_invitation(occasion_doc, guest_row) -> dict:
 def send_single(occasion_name: str, guest_code: str):
     """Whitelisted: send WhatsApp invitation to one guest by guest_code"""
     occasion = frappe.get_doc("Occasion", occasion_name)
+    occasion.check_permission("write")
+    occasion.assert_can_send()
     for guest in occasion.guests:
         if guest.guest_code == guest_code:
             result = send_invitation(occasion, guest)
