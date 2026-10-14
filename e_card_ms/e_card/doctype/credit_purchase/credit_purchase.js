@@ -9,7 +9,7 @@ frappe.ui.form.on("Credit Purchase", {
 				`/api/method/e_card_ms.receipts.download_receipt?doctype=Credit%20Purchase&name=${encodeURIComponent(frm.doc.name)}`
 			);
 		}, __("Receipt"));
-		if (frappe.user.has_role(["System Manager", "Event Manager"])) {
+		if (frappe.user.has_role("System Manager")) {
 			frm.add_custom_button(__("Send Receipt (WhatsApp/Email)"), () => {
 				frappe.call({
 					method: "e_card_ms.receipts.resend_receipt",

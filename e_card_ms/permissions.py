@@ -1,12 +1,12 @@
 """Row-level permission helpers shared by e_card_ms doctypes.
 
-System Manager and Event Manager (internal staff) see everything. Everyone else
-— in practice the self-registered Occasion Manager — only sees their own rows.
+Only Administrator and System Manager see everything. Everyone else — in
+practice the self-registered Occasion Manager — only sees their own rows.
 """
 
 import frappe
 
-STAFF_ROLES = {"System Manager", "Event Manager"}
+STAFF_ROLES = {"System Manager"}
 
 
 def is_staff(user: str | None = None) -> bool:

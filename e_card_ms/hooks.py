@@ -124,11 +124,10 @@ after_install = "e_card_ms.install.after_install"
 
 # Permissions
 # -----------
-# Occasion is staff-only: only the roles listed in its DocType permissions
-# (System Manager, Event Manager) can see or touch it. An Occasion is
-# assigned to one specific user (assigned_user, settable only by a System
-# Manager via permlevel 1) and, unless the requester is a System Manager,
-# is only visible to that assigned user.
+# Administrator and System Manager have full access to every E Card doctype.
+# Occasion Managers only have the Occasion doctype (and its child tables),
+# and only see the Occasions they created or that a System Manager assigned
+# to them (assigned_user, permlevel 1).
 
 permission_query_conditions = {
     "Occasion": "e_card_ms.e_card.doctype.occasion.occasion.get_permission_query_conditions",

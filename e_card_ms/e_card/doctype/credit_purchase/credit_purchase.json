@@ -152,7 +152,7 @@
   }
  ],
  "links": [],
- "modified": "2026-10-14 10:00:00.000000",
+ "modified": "2026-10-14 22:05:00.965194",
  "modified_by": "Administrator",
  "module": "E Card",
  "name": "Credit Purchase",
@@ -170,16 +170,6 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
-  },
-  {
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "Event Manager"
-  },
-  {
-   "read": 1,
-   "role": "Occasion Manager"
   }
  ],
  "row_format": "Dynamic",

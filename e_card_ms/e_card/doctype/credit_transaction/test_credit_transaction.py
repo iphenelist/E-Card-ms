@@ -113,15 +113,14 @@ class IntegrationTestCreditTransaction(IntegrationTestCase):
 		self.assertEqual(credits.get_balance(BUYER, "WhatsApp"), start + 10)
 		self.assertTrue(frappe.db.get_value("Credit Purchase", purchase.name, "credited"))
 
-	def test_manager_sees_only_own_ledger(self):
+	def test_manager_has_no_ledger_access(self):
 		credits.add(BUYER, "SMS", 1)
-		credits.add("Administrator", "SMS", 1)
 		frappe.set_user(BUYER)
 		try:
-			users = set(frappe.get_list("Credit Transaction", pluck="user"))
+			self.assertFalse(frappe.has_permission("Credit Transaction", "read"))
+			self.assertEqual(credits.get_balance(BUYER, "SMS") >= 1, True, "balance still readable via the app API")
 		finally:
 			frappe.set_user("Administrator")
-		self.assertEqual(users, {BUYER})
 
 	def test_receipt_pdf_and_whatsapp(self):
 		from e_card_ms import receipts

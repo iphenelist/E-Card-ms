@@ -297,7 +297,7 @@ def terms_pending(user: str | None = None) -> bool:
 	if user in ("Guest", "Administrator"):
 		return False
 	roles = frappe.get_roles(user)
-	if "System Manager" in roles or "Event Manager" in roles or "Occasion Manager" not in roles:
+	if "System Manager" in roles or "Occasion Manager" not in roles:
 		return False
 	if not cint(frappe.db.get_single_value("E Card Settings", "require_reacceptance")):
 		return not frappe.db.exists("Terms Acceptance", {"user": user})

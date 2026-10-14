@@ -16,16 +16,18 @@ CARD_TYPES = ("SINGLE", "DOUBLE", "VIP", "TABLE")
 
 
 def get_permission_query_conditions(user=None):
-    """Restrict Occasion list/report views to the assigned user, unless staff."""
+    """Occasion list/report views: everyone sees only the Occasions they created
+    (or that a System Manager assigned to them); staff see all."""
     if not user:
         user = frappe.session.user
     if is_staff(user):
         return ""
-    return f"`tabOccasion`.`assigned_user` = {frappe.db.escape(user)}"
+    user = frappe.db.escape(user)
+    return f"(`tabOccasion`.`owner` = {user} or `tabOccasion`.`assigned_user` = {user})"
 
 
 def has_permission(doc, ptype="read", user=None):
-    """Restrict direct Occasion access to the assigned user, unless staff.
+    """Direct Occasion access: only its creator or assigned user, unless staff.
     Creating is allowed by role (Occasion Manager) — validate() then assigns
     the new Occasion to its creator."""
     if not user:
@@ -34,7 +36,7 @@ def has_permission(doc, ptype="read", user=None):
         return True
     if ptype == "create" or doc.is_new():
         return True
-    return doc.assigned_user == user
+    return user in (doc.owner, doc.assigned_user)
 
 
 class Occasion(Document):

@@ -11,7 +11,7 @@ IGNORE_TEST_RECORD_DEPENDENCIES = ["User"]
 
 MANAGER = "occasion.manager.test@example.com"
 OTHER_MANAGER = "other.manager.test@example.com"
-STAFF = "event.staff.test@example.com"
+STAFF = "system.staff.test@example.com"
 
 
 def make_user(email, roles):
@@ -65,7 +65,7 @@ class IntegrationTestOccasion(IntegrationTestCase):
 		super().setUpClass()
 		make_user(MANAGER, ["Occasion Manager", "Desk User"])
 		make_user(OTHER_MANAGER, ["Occasion Manager", "Desk User"])
-		make_user(STAFF, ["Event Manager", "Desk User"])
+		make_user(STAFF, ["System Manager", "Desk User"])
 		# Managers must have accepted the current Terms to send.
 		from e_card_ms.legal import record_acceptance
 
@@ -89,6 +89,25 @@ class IntegrationTestOccasion(IntegrationTestCase):
 		frappe.set_user(STAFF)
 		self.assertTrue(frappe.has_permission("Occasion", "read", doc=occasion.name))
 		self.assertIn(occasion.name, frappe.get_list("Occasion", pluck="name"))
+
+	def test_manager_sees_only_own_occasions_and_no_other_doctypes(self):
+		mine = make_occasion()
+		frappe.set_user(OTHER_MANAGER)
+		theirs = frappe.get_doc({
+			"doctype": "Occasion", "occasion_name": f"Other {frappe.generate_hash(length=6)}",
+			"couple_names": "C & D", "occasion_date": frappe.utils.add_days(frappe.utils.today(), 30),
+			"occasion_time": "Saa 2 usiku", "venue_name": "Ukumbi",
+		}).insert()
+		self.assertEqual(theirs.owner, OTHER_MANAGER)
+		self.assertIn(theirs.name, frappe.get_list("Occasion", pluck="name"))
+		self.assertNotIn(mine.name, frappe.get_list("Occasion", pluck="name"))
+
+		frappe.set_user(MANAGER)
+		self.assertNotIn(theirs.name, frappe.get_list("Occasion", pluck="name"))
+		self.assertFalse(frappe.has_permission("Occasion", "write", doc=theirs.name))
+		for doctype in ("Occasion Subscription", "Message Credit Account", "Credit Transaction",
+						"Credit Purchase", "Occasion Guest Invite Log", "Terms Acceptance", "E Card Settings"):
+			self.assertFalse(frappe.has_permission(doctype, "read"), doctype)
 
 	# ------------------------------------------------------------ contributions
 
