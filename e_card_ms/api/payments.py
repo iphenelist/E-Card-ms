@@ -58,6 +58,7 @@ def get_credit_page_data() -> dict:
 	_require_login()
 	data = get_catalogue()
 	data["balances"] = credits.get_balances(frappe.session.user)
+	data["phone"] = frappe.db.get_value("User", frappe.session.user, "mobile_no") or ""
 	data["recent_purchases"] = frappe.get_all(
 		"Credit Purchase",
 		filters={"user": frappe.session.user},
