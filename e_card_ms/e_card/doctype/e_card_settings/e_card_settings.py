@@ -46,6 +46,13 @@ class ECardSettings(Document):
 		return send_sms(self.test_sms_phone, "E Card: test SMS / Ujumbe wa majaribio.")
 
 	@frappe.whitelist()
+	def check_sms_balance(self):
+		frappe.only_for("System Manager")
+		from e_card_ms.api.sms import rodsms_account_status
+
+		return rodsms_account_status()
+
+	@frappe.whitelist()
 	def send_test_whatsapp(self):
 		frappe.only_for("System Manager")
 		from e_card_ms.api.whatsapp import send_text
