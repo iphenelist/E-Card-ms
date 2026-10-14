@@ -36,9 +36,9 @@
 				</div>
 				{% if frappe.session.user != "Guest" %}
 				<a class="ec-btn ec-btn-ghost" href="/credits" data-i18n="nav.credits">Credits</a>
-				<a class="ec-btn ec-btn-primary" href="/dashboard" data-i18n="nav.dashboard">Matukio yangu</a>
+				<a class="ec-btn ec-btn-primary" href="/app/occasion" data-i18n="nav.dashboard">Matukio yangu</a>
 				{% else %}
-				<a class="ec-btn ec-btn-ghost" href="/login?redirect-to=/dashboard" data-i18n="nav.login">Ingia</a>
+				<a class="ec-btn ec-btn-ghost" href="/login?redirect-to=/app/occasion" data-i18n="nav.login">Ingia</a>
 				<a class="ec-btn ec-btn-primary" href="/signup" data-i18n="nav.signup">Jisajili bure</a>
 				{% endif %}
 			</div>
@@ -64,7 +64,7 @@
 			<a href="/terms" data-i18n="footer.terms">Vigezo na Masharti</a>
 			<a href="/privacy" data-i18n="footer.privacy">Sera ya Faragha</a>
 			<a href="/e-card#maswali" data-i18n="nav.faq">Maswali</a>
-			{% if frappe.session.user != "Guest" %}<a href="/dashboard" data-i18n="nav.dashboard">Matukio yangu</a>{% else %}<a href="/login?redirect-to=/dashboard" data-i18n="nav.login">Ingia</a>{% endif %}
+			{% if frappe.session.user != "Guest" %}<a href="/app/occasion" data-i18n="nav.dashboard">Matukio yangu</a>{% else %}<a href="/login?redirect-to=/app/occasion" data-i18n="nav.login">Ingia</a>{% endif %}
 		</nav>
 		<div class="ec-footer-legal">© {{ frappe.utils.nowdate()[:4] }} {{ ec_business_name or "E Card" }}</div>
 	</div>

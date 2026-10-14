@@ -6,7 +6,7 @@ no_cache = 1
 
 def get_context(context):
 	if frappe.session.user != "Guest":
-		frappe.local.flags.redirect_location = "/dashboard"
+		frappe.local.flags.redirect_location = "/app/occasion"
 		raise frappe.Redirect
 
 	settings = frappe.get_cached_doc("E Card Settings")

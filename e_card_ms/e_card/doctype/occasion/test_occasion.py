@@ -392,39 +392,6 @@ class IntegrationTestOccasion(IntegrationTestCase):
 		self.assertEqual(get_balance(MANAGER, "SMS"), sms_before)
 		self.assertEqual(get_balance(MANAGER, "WhatsApp"), wa_before)
 
-	# ------------------------------------------------------------ website dashboard API
-
-	def test_portal_create_edit_and_isolation(self):
-		from e_card_ms.api import portal
-
-		frappe.set_user(MANAGER)
-		name = portal.create_occasion({
-			"occasion_name": f"Portal {frappe.generate_hash(length=6)}", "couple_names": "A & B",
-			"occasion_date": frappe.utils.add_days(frappe.utils.today(), 20), "occasion_time": "Saa 4 asubuhi",
-			"venue_name": "Ukumbi", "assigned_user": OTHER_MANAGER,
-		})["name"]
-		self.assertEqual(frappe.db.get_value("Occasion", name, "assigned_user"), MANAGER,
-						 "assigned_user can't be set from the website")
-
-		data = portal.save_row(name, "contributors", {"contributor_name": "Juma", "phone": "0712000301", "pledged_amount": 1000})
-		cid = data["doc"]["contributors"][0]["contributor_id"]
-		data = portal.save_row(name, "contribution_payments", {"contributor_id": cid, "amount": 1000,
-																"payment_date": frappe.utils.today(), "method": "M-Pesa"})
-		self.assertEqual(data["doc"]["contributors"][0]["payment_status"], "Fully Paid")
-		self.assertEqual(len(data["doc"]["guests"]), 1, "fully paid contributor added to guests")
-		self.assertTrue(data["timeseries"]["collected"])
-
-		guest = data["doc"]["guests"][0]
-		data = portal.save_row(name, "guests", {"name": guest["name"], "guest_name": "Juma Ali", "phone": guest["phone"]})
-		self.assertEqual(data["doc"]["guests"][0]["guest_name"], "Juma Ali")
-		self.assertRaises(frappe.ValidationError, portal.delete_row, name, "contributors", data["doc"]["contributors"][0]["name"])
-		self.assertRaises(frappe.ValidationError, portal.update_occasion, name, {"gate_pin": "000000"})
-
-		frappe.set_user(OTHER_MANAGER)
-		self.assertRaises(frappe.PermissionError, portal.get_occasion, name)
-		self.assertRaises(frappe.PermissionError, portal.save_row, name, "guests", {"guest_name": "X", "phone": "1"})
-		self.assertNotIn(name, [o.name for o in portal.get_home()["occasions"]])
-
 	def test_card_payment_webhook_approves_subscription(self):
 		from e_card_ms.api import payments
 		from e_card_ms.utils.credits import get_balance

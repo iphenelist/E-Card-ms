@@ -57,8 +57,8 @@ def sign_up(full_name: str, email: str, phone: str | None = None, accept_terms=N
 	user.flags.ignore_password_policy = True
 	user.insert()
 
-	# After verifying the email and setting a password, land on the website dashboard.
-	frappe.cache.hset("redirect_after_login", user.name, "/dashboard")
+	# After verifying the email and setting a password, land on their Occasion list in the Desk.
+	frappe.cache.hset("redirect_after_login", user.name, "/app/occasion")
 	get_account(user.name)
 	grant_signup_bonus(user.name)
 	record_acceptance(user.name, "Sign-up")
