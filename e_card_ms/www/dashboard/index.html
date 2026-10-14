@@ -1,0 +1,17 @@
+{% extends "templates/ecard_site_base.html" %}
+
+{% block ec_content %}
+<section class="ec-portal">
+	<div class="ec-wrap">
+		<div id="portalApp" aria-live="polite">
+			<div class="ec-skeleton"><span></span><span></span><span></span></div>
+		</div>
+	</div>
+</section>
+<div class="ec-toasts" id="portalToasts" role="status" aria-live="polite"></div>
+<dialog class="ec-modal" id="portalModal" aria-labelledby="portalModalTitle"></dialog>
+{% endblock %}
+
+{% block ec_script %}
+<script src="/assets/e_card_ms/js/ecard_portal.js?v={{ asset_version("js/ecard_portal.js") }}"></script>
+{% endblock %}
