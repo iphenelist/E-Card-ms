@@ -2,6 +2,7 @@
 
 import frappe
 from frappe import _
+from frappe.auth import MAX_PASSWORD_SIZE
 from frappe.rate_limiter import rate_limit
 from frappe.utils import cint, escape_html, validate_email_address
 
@@ -9,13 +10,21 @@ from e_card_ms.legal import get_legal_documents, record_acceptance, terms_pendin
 from e_card_ms.utils.credits import get_account
 
 SIGNUP_ROLES = ("Occasion Manager", "Desk User")
+MIN_PASSWORD_LENGTH = 8
 
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 @rate_limit(limit=5, seconds=60 * 60)
-def sign_up(full_name: str, email: str, phone: str | None = None, accept_terms=None, website: str | None = None):
-	"""Create a desk User with the Occasion Manager role. Frappe's welcome email
-	carries the verification link where the user sets their password."""
+def sign_up(
+	full_name: str,
+	email: str,
+	password: str,
+	phone: str | None = None,
+	accept_terms=None,
+	website: str | None = None,
+):
+	"""Create a desk User with the Occasion Manager role, using the password chosen
+	on the form, and log them straight in — no set-password email round trip."""
 	# Honeypot: the hidden "website" field is only ever filled in by bots.
 	if website:
 		return {"status": "ok", "message": _("Angalia barua pepe yako. / Please check your email.")}
@@ -29,6 +38,12 @@ def sign_up(full_name: str, email: str, phone: str | None = None, accept_terms=N
 		frappe.throw(_("Enter your full name."))
 	if not validate_email_address(email):
 		frappe.throw(_("Enter a valid email address."))
+	if len(password or "") < MIN_PASSWORD_LENGTH:
+		frappe.throw(_("Nenosiri liwe na herufi {0} au zaidi. / Password must be at least {0} characters.").format(
+			MIN_PASSWORD_LENGTH
+		))
+	if len(password) > MAX_PASSWORD_SIZE:
+		frappe.throw(_("Password is too long."))
 
 	if frappe.db.exists("User", email):
 		enabled = frappe.db.get_value("User", email, "enabled")
@@ -50,31 +65,23 @@ def sign_up(full_name: str, email: str, phone: str | None = None, accept_terms=N
 		"first_name": escape_html(full_name),
 		"mobile_no": (phone or "").strip() or None,
 		"user_type": "System User",
-		"send_welcome_email": 1,
+		"new_password": password,
+		"send_welcome_email": 0,
 		"roles": [{"role": role} for role in SIGNUP_ROLES],
 	})
 	user.flags.ignore_permissions = True
-	user.flags.ignore_password_policy = True
+	# Frappe's password policy (System Settings) still applies in User.validate.
 	user.insert()
 
-	# After verifying the email and setting a password, land on their Occasion list in the Desk.
-	frappe.cache.hset("redirect_after_login", user.name, "/app/occasion")
 	get_account(user.name)
 	record_acceptance(user.name, "Sign-up")
 
-	if user.flags.email_sent:
-		message = _("Akaunti imeundwa! Angalia barua pepe yako ({0}) kuthibitisha na kuweka nenosiri. / "
-					"Account created! Check your email ({0}) to verify and set your password.").format(email)
-	else:
-		# Frappe skips the welcome email when no default outgoing Email Account
-		# is set up (OutgoingEmailError). Mark it pending: the hourly
-		# send_pending_welcome_emails job sends it as soon as email works.
-		frappe.db.set_value("Message Credit Account", user.name, "welcome_email_pending", 1)
-		message = _(
-			"Akaunti imeundwa! Barua pepe ya kuweka nenosiri itatumwa kwa {0} muda si mrefu. / "
-			"Account created! The email to set your password will be sent to {0} shortly."
-		).format(email)
-	return {"status": "ok", "message": message}
+	frappe.local.login_manager.login_as(user.name)
+	return {
+		"status": "ok",
+		"message": _("Akaunti imeundwa! / Account created!"),
+		"redirect_to": "/app/occasion",
+	}
 
 
 @frappe.whitelist()

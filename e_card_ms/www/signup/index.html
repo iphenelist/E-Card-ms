@@ -5,7 +5,7 @@
 	<div class="ec-wrap">
 		<div class="ec-auth-aside">
 			<h1 style="font-size:clamp(2.2rem,5vw,3.2rem)" data-i18n="signup.title">Fungua akaunti yako</h1>
-			<p class="ec-lede" data-i18n="signup.lede">Utapokea barua pepe ya kuthibitisha. Bonyeza kiungo chake kuweka nenosiri lako, kisha anza kupanga tukio.</p>
+			<p class="ec-lede" data-i18n="signup.lede">Jaza taarifa zako, chagua nenosiri, kisha anza kupanga tukio lako mara moja.</p>
 			<ul class="ec-ticks">
 				<li data-i18n="signup.t1">Kuunda tukio, bajeti na michango ni bure</li>
 				<li data-i18n="signup.t2">Unalipia kadi na credits za SMS/WhatsApp unapozihitaji tu</li>
@@ -28,6 +28,15 @@
 					<label for="phone" data-i18n="signup.phone">Namba ya simu</label>
 					<input type="tel" id="phone" name="phone" autocomplete="tel" inputmode="tel" placeholder="07XX XXX XXX">
 					<div class="ec-help" data-i18n="signup.phone_help">Tunaitumia kukuhudumia tu, si kukutumia matangazo.</div>
+				</div>
+				<div class="ec-field">
+					<label for="password" data-i18n="signup.password">Nenosiri</label>
+					<input type="password" id="password" name="password" autocomplete="new-password" minlength="8" required>
+					<div class="ec-help" data-i18n="signup.password_help">Angalau herufi 8.</div>
+				</div>
+				<div class="ec-field">
+					<label for="confirmPassword" data-i18n="signup.confirm_password">Rudia nenosiri</label>
+					<input type="password" id="confirmPassword" autocomplete="new-password" minlength="8" required>
 				</div>
 				<div class="ec-hp" aria-hidden="true">
 					<label for="website">Website</label>
@@ -66,6 +75,8 @@
 		const data = Object.fromEntries(new FormData(form).entries());
 		if (!data.full_name.trim()) return show("err", EC.t("err.name"));
 		if (!/^\S+@\S+\.\S+$/.test(data.email.trim())) return show("err", EC.t("err.email"));
+		if (data.password.length < 8) return show("err", EC.t("err.password"));
+		if (data.password !== document.getElementById("confirmPassword").value) return show("err", EC.t("err.password_match"));
 		if (!document.getElementById("acceptTerms").checked) return show("err", EC.t("err.terms"));
 		data.accept_terms = 1;
 
@@ -75,6 +86,7 @@
 			if (res.status === "ok") {
 				form.style.display = "none";
 				show("ok", res.message);
+				if (res.redirect_to) window.location.href = res.redirect_to;
 			} else {
 				show("info", res.message);
 			}

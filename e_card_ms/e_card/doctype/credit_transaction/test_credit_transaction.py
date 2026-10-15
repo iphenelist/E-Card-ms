@@ -161,13 +161,24 @@ class IntegrationTestCreditTransaction(IntegrationTestCase):
 		email = "pending.welcome@example.com"
 		frappe.set_user("Guest")
 		try:
-			# No outgoing account: Frappe raises OutgoingEmailError inside, the account is still created.
-			with patch.object(User, "send_welcome_mail_to_user", side_effect=frappe.OutgoingEmailError):
-				res = sign_up(full_name="Pending Welcome", email=email, phone="0712000888", accept_terms=1)
+			with (
+				patch.object(User, "send_welcome_mail_to_user") as welcome,
+				patch.object(frappe.local, "login_manager", create=True) as login_manager,
+			):
+				res = sign_up(full_name="Pending Welcome", email=email, password="Kadi-Yangu-2026",
+							  phone="0712000888", accept_terms=1)
 		finally:
 			frappe.set_user("Administrator")
+		# The password is chosen on the form: no set-password email, logged straight in.
 		self.assertEqual(res["status"], "ok")
-		self.assertTrue(frappe.db.get_value("Message Credit Account", email, "welcome_email_pending"))
+		self.assertEqual(res["redirect_to"], "/app/occasion")
+		welcome.assert_not_called()
+		login_manager.login_as.assert_called_once_with(email)
+		from frappe.utils.password import check_password
+		self.assertEqual(check_password(email, "Kadi-Yangu-2026"), email)
+
+		# Users created elsewhere while email was down are still caught up by the job.
+		frappe.db.set_value("Message Credit Account", email, "welcome_email_pending", 1)
 
 		with (
 			patch("frappe.email.doctype.email_account.email_account.EmailAccount.find_default_outgoing", return_value=None),
